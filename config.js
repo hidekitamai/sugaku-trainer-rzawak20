@@ -1,8 +1,8 @@
 // 設定（公開ページに載るので、氏名などの個人情報は書かない）
 window.SUGAKU_CONFIG = {
   // Google フォームの送信先（作成後に記入。空なら記録は端末内だけ）
-  formPostUrl: '',
-  formFields: { mode: '', score: '', log: '' },
+  formPostUrl: 'https://docs.google.com/forms/d/e/1FAIpQLScI6PommdWOihmCuyPvwO2JdsrTY3zmca-j-i8peQiBo4JWjA/formResponse',
+  formFields: { mode: 'entry.1635931720', score: 'entry.1652455196', log: 'entry.608954066' }, // 種類・点数・記録
   // 初回起動時に「リベンジ問題」として登録する単元（ワークで間違えた問題の型）
   seedRevenge: [
     'c2-ryou.1', 'c2-ryou.2', 'c2-kankei.1',             // 数量・関係を文字式で表す
