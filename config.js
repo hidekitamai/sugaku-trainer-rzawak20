@@ -1,0 +1,14 @@
+// 設定（公開ページに載るので、氏名などの個人情報は書かない）
+window.SUGAKU_CONFIG = {
+  // Google フォームの送信先（作成後に記入。空なら記録は端末内だけ）
+  formPostUrl: '',
+  formFields: { mode: '', score: '', log: '' },
+  // 初回起動時に「リベンジ問題」として登録する単元（ワークで間違えた問題の型）
+  seedRevenge: [
+    'c2-ryou.1', 'c2-ryou.2', 'c2-kankei.1',             // 数量・関係を文字式で表す
+    'c2-kagen.1', 'c2-kagen.2', 'c2-jouj.1', 'c2-jouj.3', // 符号のミス
+    'c3-basic.1', 'c3-basic.3', 'c3-both.1', 'c3-both.2', 'c3-kakko.1', 'c3-frac.3',
+  ],
+};
+// 予想テスト（過去のテストをもとに作成したら、ここに追加する）
+window.YOSOU = [];

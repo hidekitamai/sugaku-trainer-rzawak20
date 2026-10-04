@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="数学">
+<meta name="theme-color" content="#ffffff">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>数学トレーニング</title>
+<style>
+:root{
+  --bg:#ffffff; --ink:#1f1f1d; --sub:#8a8983; --line:#ecebe6; --key:#f3f2ed; --key-ink:#1f1f1d;
+  --accent:#1d9e75; --accent-soft:#e1f5ee; --accent-ink:#085041;
+  --rv:#d85a30; --rv-soft:#faece7; --rv-ink:#712b13; --ok:#1d9e75; --ng:#d85a30;
+  --dark:#1f1f1d; --on-dark:#ffffff;
+  --serif:"Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","YuMincho","Noto Serif JP",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141413; --ink:#ecebe6; --sub:#9a9993; --line:#2a2a28; --key:#232321; --key-ink:#ecebe6;
+    --accent:#5dcaa5; --accent-soft:#0f3b2e; --accent-ink:#9fe1cb;
+    --rv:#f0997b; --rv-soft:#3d2118; --rv-ink:#f5c4b3; --ok:#5dcaa5; --ng:#f0997b;
+    --dark:#ecebe6; --on-dark:#141413;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif)}
+body{padding:calc(env(safe-area-inset-top) + 8px) 16px calc(env(safe-area-inset-bottom) + 24px)}
+main{max-width:480px;margin:0 auto}
+h1{font-size:26px;font-weight:600;margin:6px 0 10px;letter-spacing:.02em}
+h2{font-size:16px;font-weight:600;margin:28px 0 10px}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.sub{color:var(--sub);font-size:13px}
+.center{text-align:center}
+.accent{color:var(--accent);font-size:20px}
+.top{display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;gap:8px}
+.bar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;display:flex;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar.thin i.l{background:var(--accent-soft)}
+.tag{font-size:12px;padding:3px 10px;border-radius:99px;background:var(--key);color:var(--sub);white-space:nowrap}
+.tag.rv{background:var(--rv-soft);color:var(--rv-ink)}
+.instr{font-size:15px;line-height:1.7;margin:14px 0 4px;color:var(--sub)}
+.q{font-size:27px;line-height:1.6;margin:10px 0 18px;word-break:break-word}
+.q.small{font-size:20px;margin:6px 0 10px}
+i{font-family:"Times New Roman",Times,serif;font-style:italic;padding:0 .04em}
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;font-size:.8em;margin:0 .1em;line-height:1.15}
+.frac>span:first-child{border-bottom:1px solid currentColor;padding:0 .2em}
+.frac>span:last-child{padding:0 .2em}
+.disp{min-height:56px;font-size:24px;padding:10px 14px;background:var(--key);border-radius:14px;display:flex;align-items:center;flex-wrap:wrap}
+.disp .ph{color:var(--sub);font-size:14px}
+.caret{display:inline-block;width:2px;height:26px;background:var(--accent);margin-left:2px;animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.pad{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:12px}
+.pad button{background:var(--key);color:var(--key-ink);border-radius:16px;height:46px;font-size:20px}
+.pad button.v{background:var(--accent-soft);color:var(--accent-ink)}
+.pad button.v,.pad button[data-k="^"]{font-family:"Times New Roman",serif;font-style:italic}
+.pad button.fn{font-size:14px;color:var(--sub)}
+.pad .w2{grid-column:span 2}
+.pad button:active,.choices button:active,.conf button:active{transform:scale(.96)}
+.conf{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.conf button{padding:13px 0;border-radius:99px;background:var(--key);font-size:15px}
+.conf button.dark{background:var(--dark);color:var(--on-dark)}
+.choices{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0}
+.choices button{padding:16px 0;font-size:22px;background:var(--key);border-radius:16px;border:2px solid transparent}
+.choices button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.foot{display:flex;justify-content:space-between;margin-top:14px}
+.link{color:var(--sub);font-size:14px;padding:10px 0;text-decoration:underline;text-underline-offset:3px}
+.hint{background:var(--accent-soft);color:var(--accent-ink);border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.7;margin-top:10px}
+.msg{background:var(--rv-soft);color:var(--rv-ink);border-radius:12px;padding:10px 14px;font-size:14px;margin-top:10px}
+.mark{font-size:72px;text-align:center;margin:18px 0 0;line-height:1}
+.mark.ok{color:var(--ok)}.mark.ng{color:var(--ng)}
+.ansrow{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding:12px 0;font-size:20px;gap:12px}
+.ans{font-size:22px}
+.why{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.why button{padding:13px 6px;font-size:14px;background:var(--key);border-radius:12px}
+.big{display:block;width:100%;padding:18px;border-radius:18px;background:var(--dark);color:var(--on-dark);font-size:18px;margin-top:16px;letter-spacing:.03em}
+.big small{display:block;font-size:12px;opacity:.75;margin-top:4px;letter-spacing:0}
+.menu{display:flex;flex-direction:column;margin-top:14px;border-top:1px solid var(--line)}
+.menu button{display:flex;justify-content:space-between;align-items:center;padding:16px 2px;border-bottom:1px solid var(--line);font-size:16px;text-align:left}
+.prog{margin:12px 0}
+.prog .t{display:flex;justify-content:space-between;font-size:14px;margin-bottom:6px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+.stats div{background:var(--key);border-radius:14px;padding:14px 6px;text-align:center}
+.stats b{display:block;font-size:28px;font-weight:600}
+.stats b small{font-size:14px;color:var(--sub);font-weight:400}
+.stats span{font-size:12px;color:var(--sub)}
+.list div{padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}
+.group{border-top:1px solid var(--line);margin-bottom:6px}
+.gh{font-size:13px;color:var(--sub);padding:10px 0 2px}
+label.ck{display:flex;align-items:center;gap:12px;padding:9px 0;font-size:15px}
+label.ck input{width:20px;height:20px;accent-color:var(--accent)}
+input[type=date]{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script src="config.js"></script>
+<script src="gen.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
