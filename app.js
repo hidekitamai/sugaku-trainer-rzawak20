@@ -156,10 +156,17 @@ function newCards() {
 // ---------- セッション ----------
 let Q = null; // {mode, title, queue, deadline, i, done:[], retry:[], last, cur}
 
-function startDaily() {
-  Q = { mode: 'daily', title: '毎日10分', deadline: Date.now() + DAILY_MS, i: 0, done: [], retry: [], used: new Set() };
+// focus: ''＝おまかせ／'ch:3'＝章全体／'c3-both'＝単元（学校の進度に合わせて本人が選ぶ）
+function startDaily(focus) {
+  Q = { mode: 'daily', title: '毎日10分', deadline: Date.now() + DAILY_MS, i: 0, done: [], retry: [], used: new Set(), focus: focus || '', fk: 0, st: {}, streak: {} };
+  if (SKILL[focus] && !S.learned.includes(focus)) S.learned.push(focus); // 選んだ単元は「習った」に入れる
+  S.settings.focus = focus || ''; save();
   next();
 }
+const focusSkills = f => (f.startsWith('ch:') ? SKILLS.filter(s => s.ch === f.slice(3)).map(s => s.id) : SKILL[f] ? [f] : []);
+const focusLabel = f => (f.startsWith('ch:') ? `${CHAPTERS[f.slice(3)]}（全部）` : SKILL[f] ? SKILL[f].name : 'おまかせ');
+// 選んだ単元の今日の段：これまでの到達段と、今日3問連続正解で上がった段の高いほう
+const focusTier = sid => Math.min(SKILL[sid].tiers.length, Math.max(frontier(sid), Q.st[sid] || 1));
 function startFixed(mode, title, cards) {
   Q = { mode, title, queue: cards, i: 0, done: [], retry: [], used: new Set() };
   next();
@@ -167,6 +174,13 @@ function startFixed(mode, title, cards) {
 function pickDaily() {
   const n = Q.done.length;
   const r = Q.retry.findIndex(x => x.at <= n); if (r >= 0) return { id: Q.retry.splice(r, 1)[0].id, retry: true };
+  const fs = focusSkills(Q.focus);
+  if (fs.length) { // 選んだ単元を中心に、3問に1問はリベンジ・復習をはさむ
+    const due = dueCards().filter(id => !Q.used.has(id) && !fs.includes(id.split('.')[0]));
+    if (n % 3 === 2 && due.length) return { id: due[0] };
+    const sid = fs[Q.fk++ % fs.length];
+    return { id: `${sid}.${focusTier(sid)}`, focus: true };
+  }
   const lastSkill = Q.last && Q.last.split('.')[0];
   const due = dueCards().filter(id => !Q.used.has(id) && id.split('.')[0] !== lastSkill);
   const fresh = newCards().filter(id => !Q.used.has(id) && id.split('.')[0] !== lastSkill);
@@ -192,7 +206,7 @@ function next() {
   }
   Q.used.add(pick.id);
   const c = card(pick.id);
-  Q.cur = { ...pick, p: makeProblem(pick.id), revenge: !pick.retry && c && c.pri > 0, review: !pick.retry && c && !c.pri, input: '', choice: new Set(), hint: false };
+  Q.cur = { ...pick, p: makeProblem(pick.id), revenge: !pick.retry && c && c.pri > 0, review: !pick.retry && !pick.focus && c && !c.pri, input: '', choice: new Set(), hint: false };
   ask();
 }
 
@@ -215,6 +229,11 @@ function record(ok, conf) {
   save();
   Q.done.push({ id, ok, retry: !!retry, revenge: Q.cur.revenge, q: Q.cur.p.q, ans: Q.cur.p.ans });
   if (!ok && !retry) Q.retry.push({ id, at: Q.done.length + 2 }); // 2問あとに類題でもう一度
+  if (Q.cur.focus && !retry) { // 今日の中で3問連続正解したら、次の段へ
+    const sid = id.split('.')[0], t = +id.split('.')[1];
+    Q.streak[sid] = ok && !weak ? (Q.streak[sid] || 0) + 1 : 0;
+    if (Q.streak[sid] >= 3 && t < SKILL[sid].tiers.length) { Q.st[sid] = t + 1; Q.streak[sid] = 0; Q.levelUp = true; }
+  }
   Q.last = id; Q.lastWasDue = !!(Q.cur.revenge || Q.cur.review);
   return c;
 }
@@ -288,10 +307,11 @@ function result(ok, conf) {
   const c = record(ok, conf);
   const after = ok ? (retry ? '類題でできた。明日もう一度確かめよう。' : revenge ? 'リベンジ成功！' : (conf === 'low' || Q.cur.hint) ? '正解。自信がなかったので、明日また出すね。' : `次は${INTERVALS[Math.min(c.b, INTERVALS.length) - 1]}日後に出るよ。`)
     : (retry ? '明日リベンジしよう。' : '2問あとに、数字を変えた類題が出るよ。');
+  const up = Q.levelUp ? '<div class="hint center">3問連続正解！ 次はレベルを上げるよ。</div>' : ''; Q.levelUp = false;
   app().innerHTML = `
     ${topBar()}
     <div class="mark ${ok ? 'ok' : 'ng'}">${ok ? '○' : '×'}</div>
-    <p class="center sub">${after}</p>
+    <p class="center sub">${after}</p>${up}
     ${!ok && conf === 'high' ? '<div class="msg">自信があったのに違った問題は、思いこみがかくれているかも。</div>' : ''}
     <div class="q small">${fmtSafe(p.q)}</div>
     <div class="ansrow"><span class="sub">正しい答え</span><span class="ans">${fmtSafe(p.ans instanceof Array ? p.ans.join('、') : p.ans)}</span></div>
@@ -350,6 +370,11 @@ function home() {
     <div class="top"><span class="sub">${today().replace(/-/g, '.')}</span><span class="sub">連続 ${streak()}日</span></div>
     <h1>今日の数学</h1>
     ${left !== null && left >= 0 ? `<p class="sub">期末テストまで あと <b class="accent">${left}</b> 日</p>` : ''}
+    <label class="pick"><span class="sub">今日やるところ</span>
+      <select id="focus">
+        <option value="">おまかせ（復習＋習ったところ）</option>
+        ${Object.entries(CHAPTERS).map(([c, n]) => `<optgroup label="${esc(n)}"><option value="ch:${c}">${esc(n.split(' ')[0])} 全部</option>${SKILLS.filter(s => s.ch === c).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>`).join('')}
+      </select></label>
     <button class="big" id="daily">毎日10分をはじめる<small>${rv ? `リベンジ問題 ${rv}問・` : ''}復習 ${due.length - rv}問</small></button>
     <div class="menu">
       <button id="unit"><span>単元まとめ</span><span class="sub">単元が終わったら</span></button>
@@ -360,7 +385,8 @@ function home() {
     ${chs}
     <p class="sub">濃い線＝身についた　うすい線＝練習中</p>
     <button class="link" id="cfg">おうちの人用の設定</button>`;
-  $('#daily').onclick = startDaily;
+  $('#focus').value = S.settings.focus || '';
+  $('#daily').onclick = () => startDaily($('#focus').value);
   $('#unit').onclick = unitPicker;
   $('#test').onclick = () => startFixed('test', 'テスト前の総合演習', testCards(20));
   $('#yosou').onclick = yosouList;
