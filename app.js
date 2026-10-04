@@ -274,7 +274,7 @@ function ask() {
   });
   else { app().querySelectorAll('[data-k]').forEach(b => b.onclick = () => key(b.dataset.k)); drawDisp(); }
   app().querySelectorAll('[data-conf]').forEach(b => b.onclick = () => submit(b.dataset.conf));
-  $('#hint').onclick = () => { Q.cur.hint = true; $('#hintbox').innerHTML = `<div class="hint">${fmtSafe(p.hint || '問題文をもう一度ゆっくり読んでみよう。')}</div>`; };
+  $('#hint').onclick = () => { Q.cur.hint = true; $('#hintbox').innerHTML = `<div class="hint">${fmtSafe(p.hint || '問題文をもう一度ゆっくり読んでみよう。')}${pageText(p.skill) ? `<div class="pgref">${pageText(p.skill)}</div>` : ''}</div>`; };
   $('#quit').onclick = () => (Q.done.length ? finish() : home());
 }
 function keypad(rel) {
@@ -316,7 +316,7 @@ function result(ok, conf) {
     <div class="q small">${fmtSafe(p.q)}</div>
     <div class="ansrow"><span class="sub">正しい答え</span><span class="ans">${fmtSafe(p.ans instanceof Array ? p.ans.join('、') : p.ans)}</span></div>
     ${!ok && input ? `<div class="ansrow"><span class="sub">あなたの答え</span><span>${fmtSafe(input)}</span></div>` : ''}
-    ${!ok ? `<div class="hint">${fmtSafe(p.hint || '')}</div><div class="sub" style="margin:16px 0 8px">どこでつまずいた？（押すと次へ）</div><div class="why">${ERR_TYPES.map(t => `<button data-e="${t}">${t}</button>`).join('')}</div>`
+    ${!ok ? `<div class="hint">${fmtSafe(p.hint || '')}${pageText(p.skill) ? `<div class="pgref">${pageText(p.skill)}</div>` : ''}</div><div class="sub" style="margin:16px 0 8px">どこでつまずいた？（押すと次へ）</div><div class="why">${ERR_TYPES.map(t => `<button data-e="${t}">${t}</button>`).join('')}</div>`
           : '<button class="big" id="nx">次へ</button>'}`;
   if (ok) $('#nx').onclick = next;
   app().querySelectorAll('[data-e]').forEach(b => b.onclick = () => { S.log[S.log.length - 1].err = b.dataset.e; save(); next(); });
@@ -373,8 +373,8 @@ function home() {
     <label class="pick"><span class="sub">今日やるところ</span>
       <select id="focus">
         <option value="">おまかせ（復習＋習ったところ）</option>
-        ${Object.entries(CHAPTERS).map(([c, n]) => `<optgroup label="${esc(n)}"><option value="ch:${c}">${esc(n.split(' ')[0])} 全部</option>${SKILLS.filter(s => s.ch === c).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>`).join('')}
-      </select></label>
+        ${Object.entries(CHAPTERS).map(([c, n]) => `<optgroup label="${esc(n)}"><option value="ch:${c}">${esc(n.split(' ')[0])} 全部</option>${SKILLS.filter(s => s.ch === c).map(s => `<option value="${s.id}">${esc(s.name)}　${pageText(s.id, true)}</option>`).join('')}</optgroup>`).join('')}
+      </select><span class="sub" id="pg"></span></label>
     <button class="big" id="daily">毎日10分をはじめる<small>${rv ? `リベンジ問題 ${rv}問・` : ''}復習 ${due.length - rv}問</small></button>
     <div class="menu">
       <button id="unit"><span>単元まとめ</span><span class="sub">単元が終わったら</span></button>
@@ -385,7 +385,8 @@ function home() {
     ${chs}
     <p class="sub">濃い線＝身についた　うすい線＝練習中</p>
     <button class="link" id="cfg">おうちの人用の設定</button>`;
-  $('#focus').value = S.settings.focus || '';
+  const showPg = () => { const v = $('#focus').value; $('#pg').textContent = SKILL[v] ? pageText(v) : ''; };
+  $('#focus').value = S.settings.focus || ''; showPg(); $('#focus').onchange = showPg;
   $('#daily').onclick = () => startDaily($('#focus').value);
   $('#unit').onclick = unitPicker;
   $('#test').onclick = () => startFixed('test', 'テスト前の総合演習', testCards(20));

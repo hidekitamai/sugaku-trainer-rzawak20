@@ -219,8 +219,23 @@ const SKILLS = [
   ]},
 ];
 
+// 教科書・ワークの該当ページ（ワークの「教科書 p.○」表示と目次から。1章は教科書ページ未確認）
+const PAGES = {
+  'c1-add': { work: '12〜17' }, 'c1-mul': { work: '18〜23' }, 'c1-mix': { work: '24〜26' },
+  'c2-hyouki': { kyo: '62〜63', work: '37' }, 'c2-ryou': { kyo: '60〜65', work: '36〜39' }, 'c2-atai': { kyo: '66〜68', work: '40〜41' },
+  'c2-kagen': { kyo: '70〜74', work: '42〜45' }, 'c2-jouj': { kyo: '75〜77', work: '46〜49' }, 'c2-mix': { kyo: '70〜77', work: '50〜51' },
+  'c2-kankei': { kyo: '78〜83', work: '52〜53' },
+  'c3-kai': { kyo: '90〜93', work: '58〜59' }, 'c3-basic': { kyo: '90〜95', work: '58〜61' }, 'c3-both': { kyo: '94〜95', work: '60〜61' },
+  'c3-kakko': { kyo: '96〜97', work: '62〜63' }, 'c3-frac': { kyo: '96〜97', work: '62〜64' }, 'c3-hirei': { kyo: '99〜100', work: '65' },
+  'c3-riyou': { kyo: '102〜109', work: '68〜71' },
+  'c4-hirei': { kyo: '120〜123', work: '80〜81' }, 'c4-hanpi': { kyo: '131〜133', work: '86〜87' },
+};
+for (const s of SKILLS) s.pages = PAGES[s.id] || {};
+const pageText = (sid, short) => { const g = (SKILLS.find(s => s.id === sid) || {}).pages || {};
+  return short ? (g.kyo ? `教p.${g.kyo}` : g.work ? `ワークp.${g.work}` : '')
+    : [g.kyo && `教科書 p.${g.kyo}`, g.work && `ワーク p.${g.work}`].filter(Boolean).join('　'); };
 const SKILL = Object.fromEntries(SKILLS.map(s => [s.id, s]));
-const CHAPTERS = { '1': '1章 正の数・負の数', '2': '2章 文字の式', '3': '3章 方程式', '4': '4章 比例と反比例' };
+const CHAPTERS = { '1': '1章 正の数・負の数', '2': '2章 文字の式', '3': '3章 方程式', '4': '4章 変化と対応' };
 
 function makeProblem(cardId) {
   const [sid, t] = cardId.split('.');
@@ -228,4 +243,4 @@ function makeProblem(cardId) {
   const p = s.tiers[tier - 1]();
   return { ...p, card: `${sid}.${tier}`, skill: sid, tier, sname: s.name, ch: s.ch };
 }
-if (typeof module !== 'undefined') module.exports = { SKILLS, SKILL, CHAPTERS, makeProblem };
+if (typeof module !== 'undefined') module.exports = { SKILLS, SKILL, CHAPTERS, makeProblem, pageText };
