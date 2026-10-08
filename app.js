@@ -327,7 +327,7 @@ function finish() {
   const miss = first.filter(d => !d.ok);
   const score = first.length ? Math.round(100 * ok / first.length) : 0;
   const weak = {}; for (const d of miss) { const n = skillOf(d.id).name; weak[n] = (weak[n] || 0) + 1; }
-  sendLog(first.length, ok);
+  sendLog(Q.mode);
   app().innerHTML = `
     <h1>${Q.mode === 'daily' ? '今日の10分、おしまい' : esc(Q.title) + ' おしまい'}</h1>
     <div class="stats">
@@ -345,15 +345,27 @@ function streak() {
   for (let d = today(); days.has(d); d = addDays(d, -1)) n++;
   return n;
 }
-function sendLog(total, ok) { // Google フォームへ送る（設定があるときだけ）
+// Google フォームへ送る（設定があるときだけ）。未送信の記録をまとめて送り、送った印を付ける。
+// 1回分を終えたときだけでなく、途中でアプリを閉じた・切り替えたときにも送る。
+function sendLog(mode) {
   if (!CFG.formPostUrl || !CFG.formFields) return;
-  try {
-    const f = CFG.formFields, fd = new FormData(), mine = S.log.slice(-Math.max(total * 2, 1));
-    fd.append(f.mode, Q.mode); fd.append(f.score, `${ok}/${total}`);
-    fd.append(f.log, JSON.stringify(mine.map(l => [l.at.slice(0, 16), l.card, l.ok ? 1 : 0, l.conf, l.hint ? 1 : 0, l.retry ? 1 : 0, l.err || '', l.q])));
-    fetch(CFG.formPostUrl, { method: 'POST', body: fd, mode: 'no-cors' }).catch(() => {});
-  } catch (e) { /* 送れなくても端末には残っている */ }
+  const f = CFG.formFields;
+  const pending = S.log.filter(l => !l.s);
+  for (let i = 0; i < pending.length; i += 150) {
+    const part = pending.slice(i, i + 150), first = part.filter(l => !l.retry);
+    try {
+      const fd = new FormData();
+      fd.append(f.mode, mode || (Q && Q.mode) || 'daily');
+      fd.append(f.score, `${first.filter(l => l.ok).length}/${first.length}`);
+      fd.append(f.log, JSON.stringify(part.map(l => [l.at.slice(0, 16), l.card, l.ok ? 1 : 0, l.conf, l.hint ? 1 : 0, l.retry ? 1 : 0, l.err || '', l.q])));
+      fetch(CFG.formPostUrl, { method: 'POST', body: fd, mode: 'no-cors', keepalive: true }).catch(() => {});
+      part.forEach(l => { l.s = 1; });
+    } catch (e) { /* 送れなくても端末には残っている */ }
+  }
+  save();
 }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') sendLog(Q ? Q.mode + '(途中)' : ''); });
+window.addEventListener('pagehide', () => sendLog(Q ? Q.mode + '(途中)' : ''));
 
 // ---------- ホーム ----------
 function home() {
