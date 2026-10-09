@@ -458,5 +458,9 @@ function settings() {
   $('#ex').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = `sugaku-${today()}.json`; a.click(); };
 }
 
-load(); save(); home();
+load();
+// フォームが受け付けていなかった期間の記録を送り直す（config の resendVer を上げると、全件を未送信に戻して送る）
+if (CFG.resendVer && S.resendVer !== CFG.resendVer) { S.log.forEach(l => { delete l.s; }); S.resendVer = CFG.resendVer; }
+save(); home();
+if (S.log.some(l => !l.s)) sendLog('過去分');
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
