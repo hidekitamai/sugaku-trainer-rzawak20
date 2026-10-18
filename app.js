@@ -24,7 +24,7 @@ function load() {
   try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) { S = null; }
   if (!S || !S.cards) S = seed();
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* 保存できない環境 */ } }
+function save() { if (window.MOVE_IMPORTING) return; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* 保存できない環境 */ } } // 引っ越しの取り込み中は書かない
 
 // 初回：ワークの結果を反映（間違えた単元はリベンジ、できた単元は先々の復習へ）
 function seed() {
@@ -461,6 +461,6 @@ function settings() {
 load();
 // フォームが受け付けていなかった期間の記録を送り直す（config の resendVer を上げると、全件を未送信に戻して送る）
 if (CFG.resendVer && S.resendVer !== CFG.resendVer) { S.log.forEach(l => { delete l.s; }); S.resendVer = CFG.resendVer; }
-save(); home();
-if (S.log.some(l => !l.s)) sendLog('過去分');
+save(); if (!window.MOVE_IMPORTING) home();
+if (!window.MOVE_IMPORTING && S.log.some(l => !l.s)) sendLog('過去分');
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
