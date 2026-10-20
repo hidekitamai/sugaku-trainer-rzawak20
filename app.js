@@ -283,14 +283,52 @@ function keypad(rel) {
   const label = k => ({ '-': '−', '/': '分数', '^': 'x²', '←': '⌫' }[k] || k);
   return `<div class="pad">${K.map(k => k === ' ' ? '<span></span>' : `<button data-k="${k}" class="${/^[a-z]$/.test(k) ? 'v' : k.length > 1 || k === '←' ? 'fn' : ''}${k === '消す' ? ' w2' : ''}">${label(k)}</button>`).join('')}</div>`;
 }
+// 答えの入力は「紙と同じ形」で持つ：ふつうの文字の並び＋分数の枠（上＝分子・下＝分母）。
+// 子どもにかっこを打たせない（紙では分子が式でもかっこは書かない）。計算用のかっこは toStr で内部だけに補う。
+const newBox = () => ({ segs: [{ t: 's', v: '' }], i: 0, part: 'v' });
+const wrapN = n => (/[+\-]/.test(n.replace(/^-/, '')) ? `(${n})` : n);
+const wrapD = d => (/^[0-9.]+$|^[a-z]$/.test(d) ? d : `(${d})`);
+function toStr(box) {
+  let out = '';
+  box.segs.forEach((g, k) => {
+    if (g.t === 's') { out += g.v; return; }
+    let f = `${wrapN(g.n)}/${wrapD(g.d)}`;
+    const nx = box.segs[k + 1];
+    if (nx && /^[0-9.]/.test(nx.v)) f = `(${f})`; // 分数のすぐ後に数字が続くとき（例：½3）だけ
+    out += f;
+  });
+  return out;
+}
 function key(k) {
-  const c = Q.cur;
-  if (k === '←') c.input = c.input.slice(0, -1); else if (k === '消す') c.input = ''; else c.input += k;
+  const c = Q.cur; c.box = c.box || newBox();
+  const B = c.box, g = B.segs[B.i];
+  if (k === '消す') c.box = newBox();
+  else if (k === '/') { // 分数キー：外→分子→分母→外
+    if (g.t === 's') { B.segs.splice(B.i + 1, 0, { t: 'f', n: '', d: '' }, { t: 's', v: '' }); B.i++; B.part = 'n'; }
+    else if (B.part === 'n') B.part = 'd';
+    else { B.i++; B.part = 'v'; }
+  } else if (k === '←') {
+    const cur = g[B.part];
+    if (cur) g[B.part] = cur.slice(0, -1);
+    else if (B.part === 'd') B.part = 'n';
+    else if (B.part === 'n') { // 空の分数を消し、前後の文字をつなぐ
+      const prev = B.segs[B.i - 1], next = B.segs[B.i + 1];
+      if (!g.d) { prev.v += next.v; B.segs.splice(B.i, 2); B.i--; B.part = 'v'; }
+    } else if (B.i > 0) { B.i--; B.part = 'd'; } // 分数の直後で戻すと、分母に入る
+  } else g[B.part] += k;
+  c.input = toStr(c.box);
   drawDisp();
 }
 function drawDisp() {
   const d = $('#disp'); if (!d) return;
-  d.innerHTML = Q.cur.input ? fmtSafe(Q.cur.input) + '<span class="caret"></span>' : '<span class="ph">答えを入力（計算は紙で）</span>';
+  const B = Q.cur.box || newBox(), caret = '<span class="caret"></span>';
+  const slot = (v, on) => `<span class="${on ? 'on' : ''}">${v ? fmt(v) : '<span class="slot">□</span>'}${on ? caret : ''}</span>`;
+  const empty = B.segs.length === 1 && !B.segs[0].v;
+  d.innerHTML = empty ? '<span class="ph">答えを入力（計算は紙で）</span>' + caret
+    : B.segs.map((g, k) => (g.t === 's' ? fmt(g.v) + (k === B.i ? caret : '')
+      : `<span class="frac fin">${slot(g.n, k === B.i && B.part === 'n')}${slot(g.d, k === B.i && B.part === 'd')}</span>`)).join('');
+  const fk = document.querySelector('[data-k="/"]');
+  if (fk) fk.textContent = B.part === 'n' ? '分母へ↓' : B.part === 'd' ? '外へ→' : '分数';
 }
 document.addEventListener('keydown', e => { // PC で試すとき用
   if (!Q || !Q.cur || !$('#disp')) return;
