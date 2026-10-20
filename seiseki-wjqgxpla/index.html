@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-title" content="学習の記録">
+<title>学習の記録</title>
+<style>
+:root{
+  --bg:#ffffff; --ink:#1f1f1d; --sub:#76756f; --line:#ecebe6; --card:#f6f5f1;
+  --s1:#e1f5ee; --s2:#9fe1cb; --s3:#5dcaa5; --s4:#1d9e75; --s5:#0f6e56; /* 1色の濃淡（量） */
+  --good:#1d7a4f; --warn:#a8650a; --bad:#b4372a;
+  --serif:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#141413; --ink:#ecebe6; --sub:#a09f99; --line:#2c2c2a; --card:#1e1e1c;
+  --s1:#0f3b2e; --s2:#085041; --s3:#0f6e56; --s4:#1d9e75; --s5:#5dcaa5;
+  --good:#5dcaa5; --warn:#e5a83a; --bad:#f0997b;
+}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif)}
+body{padding:calc(env(safe-area-inset-top) + 12px) 16px 40px}
+main{max-width:640px;margin:0 auto}
+h1{font-size:24px;margin:6px 0 2px;font-weight:600}
+h2{font-size:16px;margin:30px 0 10px;font-weight:600}
+.sub{color:var(--sub);font-size:13px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px}
+.tile{background:var(--card);border-radius:14px;padding:12px 8px;text-align:center}
+.tile b{display:block;font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile b small{font-size:13px;color:var(--sub);font-weight:400}
+.tile span{font-size:12px;color:var(--sub)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-width:340px}
+.cal .h{font-size:11px;color:var(--sub);text-align:center}
+.cal .d{aspect-ratio:1;border-radius:6px;background:var(--line);font-size:11px;display:flex;align-items:flex-end;justify-content:flex-end;padding:3px 4px;color:var(--sub);position:relative}
+.cal .d.today{outline:1.5px solid var(--ink)}
+.cal .d.f{opacity:.25}
+.legend{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--sub);margin-top:8px}
+.legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-110%);display:none;font-family:var(--serif)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-weight:400;color:var(--sub);font-size:12px;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+td{padding:8px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.acc{display:flex;align-items:center;gap:6px}
+.acc .b{flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden;min-width:40px}
+.acc .b i{display:block;height:100%;background:var(--s4);border-radius:3px}
+.st{font-size:12px;white-space:nowrap}
+.st.good{color:var(--good)} .st.warn{color:var(--warn)} .st.bad{color:var(--bad)}
+.list div{padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;line-height:1.6}
+.list .m{font-size:12px;color:var(--sub)}
+.note{background:var(--card);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.8;margin-top:10px}
+.err{color:var(--bad)}
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;font-size:.85em;line-height:1.1;margin:0 .1em}
+.frac>span:first-child{border-bottom:1px solid currentColor;padding:0 .2em}
+i.v{font-family:"Times New Roman",serif;font-style:italic}
+</style>
+</head>
+<body>
+<main>
+  <h1>数学トレーニング　学習の記録</h1>
+  <div class="sub" id="upd">読み込み中…</div>
+  <div id="out"></div>
+  <div class="note">
+    このページは、開くたびに最新の記録を読み込みます（解いてから反映まで数分かかることがあります）。<br>
+    ・<b>正答率</b>は、その問題に最初に答えたときの正解の割合です（間違えたあとの「もう一度」は数えません）。<br>
+    ・<b>得意／練習中／苦手</b>は、3問以上解いた単元を、正答率80％以上／60〜79％／60％未満で分けたものです。
+  </div>
+</main>
+<script src="../gen.js?v=10"></script>
+<script>
+'use strict';
+const CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSRGIsZ2olhn4RHj9Mqi-01Plb1VjjaZ3N5f0rHvHEZsJpNo-32dT6b0pVfkfcBlF7vxLf25pSTAjrR/pub?gid=831540020&single=true&output=csv';
+const EXCLUDE = new Set(['2026-10-18T12:24|c2-ryou.1', '2026-10-18T12:24|c1-add.1', '2026-10-18T12:24|c2-ryou.2']); // 動作試験の記録
+const WD = '日月火水木金土';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const md = d => `${d.getMonth() + 1}/${d.getDate()}`;
+const pct = (n, d) => (d ? Math.round(100 * n / d) : null);
+const NAME = Object.fromEntries(SKILLS.map(s => [s.id, s.name]));
+
+function parseCSV(t) { // ダブルクオート対応の簡易CSV
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; } else if (c !== '\r') f += c;
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function attempts(rows) {
+  const seen = new Set(), out = [];
+  for (const r of rows.slice(1)) {
+    const mode = (r[1] || '').trim(); if (mode === 'テスト') continue;
+    let items; try { items = JSON.parse(r[3] || '[]'); } catch (e) { continue; }
+    for (const it of items) {
+      const [at, card, ok, conf, hint, retry, err, q] = it;
+      const k = `${at}|${card}|${q}`; if (seen.has(k) || EXCLUDE.has(`${at}|${card}`)) continue; seen.add(k);
+      out.push({ t: new Date(at + ':00Z'), card, sid: card.split('.')[0], ok: !!ok, conf, retry: !!retry, err, q });
+    }
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+function fmtQ(s) { // 分数は縦、文字は斜体
+  return esc(s).replace(/(\([^()]+\)|-?\d*[a-z]+|\d+)\/(\d+|[a-z]|\([^()]+\))/g, (m, a, b) => `<span class="frac"><span>${a.replace(/^\((.*)\)$/, '$1')}</span><span>${b.replace(/^\((.*)\)$/, '$1')}</span></span>`)
+    .replace(/(^|[^a-z])([abcnxy])(?![a-z])/g, '$1<i class="v">$2</i>').replace(/\^2/g, '²').replace(/-/g, '−');
+}
+// ---- 棒グラフ（1系列・1軸）。hoverで値を出す ----
+function bars(data, { max, unit, fmt }) {
+  const W = 600, H = 240, L = 58, B = 36, T = 26, n = data.length, bw = Math.min(44, (W - L) / n - 10);
+  const step = (W - L) / n, y = v => T + (H - T - B) * (1 - v / max);
+  const ticks = [0, max / 2, max];
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  ticks.forEach(v => { s += `<line x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 7}" font-size="20" text-anchor="end" fill="var(--sub)">${fmt(v)}</text>`; });
+  data.forEach((d, i) => {
+    const x = L + step * i + (step - bw) / 2, h = d.v == null ? 0 : (H - T - B) - (y(d.v) - T);
+    if (d.v != null && h > 0) s += `<path d="M${x},${H - B} V${H - B - h + 4} q0,-4 4,-4 h${bw - 8} q4,0 4,4 V${H - B} Z" fill="var(--s4)"/>`;
+    if (d.label) s += `<text x="${x + bw / 2}" y="${H - B - h - 8}" font-size="20" text-anchor="middle" fill="var(--sub)">${d.label}</text>`;
+    s += `<text x="${x + bw / 2}" y="${H - 6}" font-size="20" text-anchor="middle" fill="var(--sub)">${esc(d.x)}</text>`;
+    s += `<rect x="${L + step * i}" y="${T}" width="${step}" height="${H - T - B}" fill="transparent" data-tip="${esc(d.tip)}"/>`;
+  });
+  return `<div class="chart">${s}</svg><div class="tip"></div></div>`;
+}
+function bindTips(root) {
+  root.querySelectorAll('.chart').forEach(ch => {
+    const tip = ch.querySelector('.tip');
+    ch.querySelectorAll('[data-tip]').forEach(r => {
+      const show = e => { const b = ch.getBoundingClientRect(), rb = r.getBoundingClientRect(); tip.textContent = r.dataset.tip; tip.style.left = (rb.left - b.left + rb.width / 2) + 'px'; tip.style.top = (rb.top - b.top + 20) + 'px'; tip.style.display = 'block'; };
+      r.addEventListener('pointerenter', show); r.addEventListener('pointerdown', show); r.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+    });
+  });
+}
+
+function render(all) {
+  const first = all.filter(a => !a.retry), now = new Date(), today = ymd(now);
+  const last = all.length ? all[all.length - 1].t : null;
+  document.getElementById('upd').textContent = last ? `いちばん新しい記録：${md(last)}（${WD[last.getDay()]}）${last.getHours()}:${String(last.getMinutes()).padStart(2, '0')}` : 'まだ記録がありません';
+  const within = (a, d0, d1) => a.t >= d0 && a.t < d1;
+  const d7 = new Date(now - 7 * 864e5), d14 = new Date(now - 14 * 864e5);
+  const wk = first.filter(a => within(a, d7, now)), pw = first.filter(a => within(a, d14, d7));
+  const wDays = new Set(wk.map(a => ymd(a.t))).size;
+  const wAcc = pct(wk.filter(a => a.ok).length, wk.length), pAcc = pct(pw.filter(a => a.ok).length, pw.length);
+  const byDay = {}; first.forEach(a => { const k = ymd(a.t); byDay[k] = (byDay[k] || 0) + 1; });
+  let streak = 0; for (let d = new Date(now); byDay[ymd(d)]; d.setDate(d.getDate() - 1)) streak++;
+  let h = `<div class="tiles">
+    <div class="tile"><b>${wDays}<small>日</small></b><span>この7日で取り組んだ日</span></div>
+    <div class="tile"><b>${wk.length}<small>問</small></b><span>この7日で解いた問題</span></div>
+    <div class="tile"><b>${wAcc == null ? '－' : wAcc}<small>${wAcc == null ? '' : '%'}</small></b><span>正答率${pAcc == null ? '' : `（前の7日 ${pAcc}%）`}</span></div>
+  </div><p class="sub">これまで：${Object.keys(byDay).length}日・${first.length}問　／　連続 ${streak}日</p>`;
+
+  // カレンダー（4週間・月曜はじまり）
+  const start = new Date(now); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - 21); // 3週前の月曜から4週間
+  const lv = n => (n >= 10 ? 5 : n >= 7 ? 4 : n >= 4 ? 3 : n >= 2 ? 2 : 1);
+  h += `<h2>取り組んだ日（4週間）</h2><div class="cal">${'月火水木金土日'.split('').map(w => `<div class="h">${w}</div>`).join('')}`;
+  for (let i = 0; i < 28; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const k = ymd(d), n = byDay[k] || 0, fut = d > now;
+    h += `<div class="d${k === today ? ' today' : ''}${fut ? ' f' : ''}" title="${md(d)} ${n}問" style="${n ? `background:var(--s${lv(n)});color:${lv(n) >= 4 ? '#fff' : 'var(--ink)'}` : ''}">${d.getDate()}</div>`;
+  }
+  h += `</div><div class="legend">少ない <i style="background:var(--s1)"></i><i style="background:var(--s2)"></i><i style="background:var(--s3)"></i><i style="background:var(--s4)"></i><i style="background:var(--s5)"></i> 多い（1日の問題数）</div>`;
+
+  // 週ごと（月曜はじまり・8週）
+  const weeks = [];
+  const w0 = new Date(now); w0.setHours(0, 0, 0, 0); w0.setDate(w0.getDate() - ((w0.getDay() + 6) % 7));
+  for (let i = 7; i >= 0; i--) { const s = new Date(w0); s.setDate(s.getDate() - 7 * i); const e = new Date(s); e.setDate(e.getDate() + 7); const xs = first.filter(a => within(a, s, e)); weeks.push({ s, n: xs.length, ok: xs.filter(a => a.ok).length }); }
+  const used = weeks.filter((w, i) => w.n || weeks.slice(0, i).some(x => x.n));
+  if (used.length) {
+    const mx = Math.max(10, ...used.map(w => w.n)); const max = Math.ceil(mx / 10) * 10;
+    h += `<h2>週ごとの問題数</h2>` + bars(used.map(w => ({ x: `${md(w.s)}〜`, v: w.n, label: w.n ? `${w.n}` : '', tip: `${md(w.s)}の週：${w.n}問` })), { max, fmt: v => `${v}` });
+    h += `<h2>週ごとの正答率</h2>` + bars(used.map(w => ({ x: `${md(w.s)}〜`, v: w.n ? pct(w.ok, w.n) : null, label: w.n ? `${pct(w.ok, w.n)}%` : '', tip: w.n ? `${md(w.s)}の週：${w.ok}/${w.n}問正解（${pct(w.ok, w.n)}%）` : `${md(w.s)}の週：記録なし` })), { max: 100, fmt: v => `${v}%` });
+  }
+
+  // 単元ごと
+  const sk = {}; first.forEach(a => { const s = sk[a.sid] || (sk[a.sid] = { n: 0, ok: 0, last: a.t }); s.n++; s.ok += a.ok; s.last = a.t; });
+  const rowsU = Object.entries(sk).sort((a, b) => (pct(a[1].ok, a[1].n) - pct(b[1].ok, b[1].n)) || b[1].n - a[1].n);
+  const status = s => (s.n < 3 ? ['', '（問題数が少ない）'] : pct(s.ok, s.n) >= 80 ? ['good', '◎ 得意'] : pct(s.ok, s.n) >= 60 ? ['warn', '△ 練習中'] : ['bad', '✕ 苦手']);
+  h += `<h2>単元ごと（苦手な順）</h2><table><tr><th>単元</th><th>正答率</th><th class="n">問</th><th></th></tr>${rowsU.map(([id, s]) => { const p = pct(s.ok, s.n), [c, t] = status(s);
+    return `<tr><td>${esc(NAME[id] || id)}<div class="sub">${esc(CHAPTERS[(SKILLS.find(x => x.id === id) || {}).ch] || '')}</div></td><td><div class="acc"><div class="b"><i style="width:${p}%"></i></div>${p}%</div></td><td class="n">${s.n}</td><td class="st ${c}">${t}</td></tr>`; }).join('')}</table>`;
+
+  // つまずき
+  const errs = {}; all.forEach(a => { if (a.err) errs[a.err] = (errs[a.err] || 0) + 1; });
+  const errList = Object.entries(errs).sort((a, b) => b[1] - a[1]);
+  if (errList.length) h += `<h2>本人が選んだ「つまずき」</h2><table>${errList.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}回</td></tr>`).join('')}</table>`;
+
+  // 最近まちがえた問題
+  const miss = first.filter(a => !a.ok).slice(-10).reverse();
+  if (miss.length) h += `<h2>最近まちがえた問題（新しい順・10問）</h2><div class="list">${miss.map(a => `<div>${fmtQ(a.q)}<div class="m">${md(a.t)}（${WD[a.t.getDay()]}）・${esc(NAME[a.sid] || a.sid)}${a.err ? '・' + esc(a.err) : ''}${a.conf === 'high' ? '・自信ありで×' : ''}</div></div>`).join('')}</div>`;
+
+  const out = document.getElementById('out'); out.innerHTML = h; bindTips(out);
+}
+fetch(CSV + '&t=' + Date.now()).then(r => { if (!r.ok) throw new Error('記録を読めませんでした（' + r.status + '）'); return r.text(); })
+  .then(t => render(attempts(parseCSV(t))))
+  .catch(e => { document.getElementById('upd').innerHTML = `<span class="err">${esc(e.message)}。時間をおいて、もう一度開いてください。</span>`; });
+</script>
+</body>
+</html>
