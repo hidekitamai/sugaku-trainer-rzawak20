@@ -499,6 +499,16 @@ function settings() {
 load();
 // フォームが受け付けていなかった期間の記録を送り直す（config の resendVer を上げると、全件を未送信に戻して送る）
 if (CFG.resendVer && S.resendVer !== CFG.resendVer) { S.log.forEach(l => { delete l.s; }); S.resendVer = CFG.resendVer; }
+// 弱点の単元をリベンジ問題に足す（今の進み具合は消さない。直近3日に正解済みで身についた単元は除く）
+if (CFG.revengeAdd && S.revengeVer !== CFG.revengeAdd.ver) {
+  CFG.revengeAdd.cards.forEach((id, k) => {
+    if (!SKILL[id.split('.')[0]]) return;
+    const c = S.cards[id] || { b: 0, d: today(), pri: 0, ok: 0 };
+    if (c.b >= MASTER && c.lastOk && daysBetween(c.lastOk, today()) <= 3) return;
+    c.pri = Math.max(c.pri || 0, 1); c.d = addDays(today(), Math.floor(k / 4)); S.cards[id] = c;
+  });
+  S.revengeVer = CFG.revengeAdd.ver;
+}
 save(); if (!window.MOVE_IMPORTING) home();
 if (!window.MOVE_IMPORTING && S.log.some(l => !l.s)) sendLog('過去分');
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
