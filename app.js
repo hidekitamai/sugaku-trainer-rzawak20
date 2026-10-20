@@ -10,6 +10,11 @@ const UNLOCK = 2;          // 2回正解で次の段へ
 const DAILY_MS = 10 * 60 * 1000;
 const ERR_TYPES = ['マイナスの符号', '計算ミス', '式の立て方', '問題の読み違い', 'わからなかった', 'その他'];
 const CFG = window.SUGAKU_CONFIG || {};
+// 途中式の行の説明から「つまずきの種類」を決める（上から順に当てはめる）
+const ERR_CATS = [[/累乗/, '累乗（−x²と(−x)²）'], [/代入/, '代入のしかた'], [/書く|省く|アルファベット/, '文字式の表し方'], [/先に/, '計算の順序'],
+  [/かっこ|はずす|分配/, 'かっこのはずし方'], [/通分|約分|分母|分子|逆数|分数/, '分数'], [/符号|移項|-1/, 'マイナスの符号・移項'],
+  [/ことばの式|とする|等しい|一定|外側/, '式の立て方'], [/同類項|まとめ|並べ/, '同類項のまとめ方'], [/両辺/, '両辺をわる・かける']];
+const errCat = (note, sid) => (ERR_CATS.find(([re]) => re.test(note || '')) || [0, ['c2-ryou', 'c2-kankei', 'c3-riyou'].includes(sid) ? '式の立て方' : '計算ミス'])[1];
 
 // ---------- 日付 ----------
 const pad2 = n => String(n).padStart(2, '0');
@@ -173,7 +178,7 @@ function startFixed(mode, title, cards) {
 }
 function pickDaily() {
   const n = Q.done.length;
-  const r = Q.retry.findIndex(x => x.at <= n); if (r >= 0) return { id: Q.retry.splice(r, 1)[0].id, retry: true };
+  const r = Q.retry.findIndex(x => x.at <= n); if (r >= 0) { const x = Q.retry.splice(r, 1)[0]; return { id: x.id, retry: true, base: !!x.base }; }
   const fs = focusSkills(Q.focus);
   if (fs.length) { // 選んだ単元を中心に、3問に1問はリベンジ・復習をはさむ
     const due = dueCards().filter(id => !Q.used.has(id) && !fs.includes(id.split('.')[0]));
@@ -199,9 +204,9 @@ function next() {
     pick = pickDaily();
   } else {
     const n = Q.done.length, r = Q.retry.findIndex(x => x.at <= n);
-    if (r >= 0) pick = { id: Q.retry.splice(r, 1)[0].id, retry: true };
+    if (r >= 0) { const x = Q.retry.splice(r, 1)[0]; pick = { id: x.id, retry: true, base: !!x.base }; }
     else if (Q.i < Q.queue.length) pick = { id: Q.queue[Q.i++] };
-    else if (Q.retry.length) pick = { id: Q.retry.shift().id, retry: true };
+    else if (Q.retry.length) { const x = Q.retry.shift(); pick = { id: x.id, retry: true, base: !!x.base }; }
     else return finish();
   }
   Q.used.add(pick.id);
@@ -224,11 +229,13 @@ function record(ok, conf) {
     }
   }
   S.cards[id] = c;
-  S.log.push({ at: new Date().toISOString(), mode: Q.mode, card: id, ok, conf, hint: Q.cur.hint, retry: !!retry, q: Q.cur.p.q });
+  S.log.push({ at: new Date().toISOString(), mode: Q.mode, card: id, ok, conf, hint: Q.cur.hint, retry: retry ? (Q.cur.base ? 2 : 1) : 0, q: Q.cur.p.q });
   if (S.log.length > 3000) S.log = S.log.slice(-3000);
   save();
   Q.done.push({ id, ok, retry: !!retry, revenge: Q.cur.revenge, q: Q.cur.p.q, ans: Q.cur.p.ans });
   if (!ok && !retry) Q.retry.push({ id, at: Q.done.length + 2 }); // 2問あとに類題でもう一度
+  if (!ok && retry && !Q.cur.base && +id.split('.')[1] > 1) // 類題でも間違えたら、すぐに1段やさしい「土台の問題」へ
+    Q.retry.push({ id: `${id.split('.')[0]}.${+id.split('.')[1] - 1}`, at: Q.done.length, base: true });
   if (Q.cur.focus && !retry) { // 今日の中で3問連続正解したら、次の段へ
     const sid = id.split('.')[0], t = +id.split('.')[1];
     Q.streak[sid] = ok && !weak ? (Q.streak[sid] || 0) + 1 : 0;
@@ -247,6 +254,7 @@ function topBar() {
 }
 function tag() {
   const c = Q.cur;
+  if (c.base) return '<span class="tag rv">土台の問題</span>';
   if (c.retry) return '<span class="tag rv">もう一度（類題）</span>';
   if (c.revenge) return '<span class="tag rv">リベンジ問題</span>';
   if (c.review) return '<span class="tag">復習</span>';
@@ -343,8 +351,10 @@ function submit(conf) {
 function result(ok, conf) {
   const { p, retry, revenge, input } = Q.cur;
   const c = record(ok, conf);
-  const after = ok ? (retry ? '類題でできた。明日もう一度確かめよう。' : revenge ? 'リベンジ成功！' : (conf === 'low' || Q.cur.hint) ? '正解。自信がなかったので、明日また出すね。' : `次は${INTERVALS[Math.min(c.b, INTERVALS.length) - 1]}日後に出るよ。`)
-    : (retry ? '明日リベンジしよう。' : '2問あとに、数字を変えた類題が出るよ。');
+  const { base } = Q.cur, lower = !ok && retry && !base && p.tier > 1;
+  const after = ok ? (base ? '土台はできた。明日、元の問題にリベンジしよう。' : retry ? '類題でできた。明日もう一度確かめよう。' : revenge ? 'リベンジ成功！' : (conf === 'low' || Q.cur.hint) ? '正解。自信がなかったので、明日また出すね。' : `次は${INTERVALS[Math.min(c.b, INTERVALS.length) - 1]}日後に出るよ。`)
+    : (lower ? '次は、1つやさしい「土台の問題」で確かめよう。' : base ? '明日もう一度リベンジしよう。わからないところは、先生に聞いてみよう。' : retry ? '明日リベンジしよう。' : '2問あとに、数字を変えた類題が出るよ。');
+  const steps = p.steps || [], multi = steps.length >= 2;
   const up = Q.levelUp ? '<div class="hint center">3問連続正解！ 次はレベルを上げるよ。</div>' : ''; Q.levelUp = false;
   app().innerHTML = `
     ${topBar()}
@@ -354,10 +364,31 @@ function result(ok, conf) {
     <div class="q small">${fmtSafe(p.q)}</div>
     <div class="ansrow"><span class="sub">正しい答え</span><span class="ans">${fmtSafe(p.ans instanceof Array ? p.ans.join('、') : p.ans)}</span></div>
     ${!ok && input ? `<div class="ansrow"><span class="sub">あなたの答え</span><span>${fmtSafe(input)}</span></div>` : ''}
-    ${!ok ? `<div class="hint">${fmtSafe(p.hint || '')}${pageText(p.skill) ? `<div class="pgref">${pageText(p.skill)}</div>` : ''}</div><div class="sub" style="margin:16px 0 8px">どこでつまずいた？（押すと次へ）</div><div class="why">${ERR_TYPES.map(t => `<button data-e="${t}">${t}</button>`).join('')}</div>`
-          : '<button class="big" id="nx">次へ</button>'}`;
+    ${ok ? '<button class="big" id="nx">次へ</button>'
+      : multi ? `<h2 class="sth">正しい解き方</h2><p class="sub">ノートに写してから、<b>自分の式とちがった行</b>を押してね。</p>
+          <div class="steps">${steps.map((l, i) => stepRow(l, i)).join('')}</div>
+          <div class="why" id="why"><button data-e="わからなかった">最初からわからなかった</button><button data-e="問題の読み違い">問題を読みちがえた</button></div>
+          ${pageText(p.skill) ? `<div class="pgref sub">${pageText(p.skill)}</div>` : ''}<div id="nxw"></div>`
+      : `<div class="hint">${steps.length ? stepRow(steps[0], 0, true) : fmtSafe(p.hint || '')}${pageText(p.skill) ? `<div class="pgref">${pageText(p.skill)}</div>` : ''}</div><div class="sub" style="margin:16px 0 8px">どこでつまずいた？（押すと次へ）</div><div class="why">${ERR_TYPES.map(t => `<button data-e="${t}">${t}</button>`).join('')}</div>`}`;
   if (ok) $('#nx').onclick = next;
-  app().querySelectorAll('[data-e]').forEach(b => b.onclick = () => { S.log[S.log.length - 1].err = b.dataset.e; save(); next(); });
+  const lg = S.log[S.log.length - 1];
+  app().querySelectorAll('[data-e]').forEach(b => b.onclick = () => { lg.err = b.dataset.e; lg.sp = 0; save(); next(); });
+  app().querySelectorAll('[data-sp]').forEach(b => b.onclick = () => { // 自分とちがった行：その行の説明から、つまずきの種類を決める
+    const i = +b.dataset.sp, note = (steps[i].split('|')[1] || '');
+    lg.sp = i + 1; lg.err = errCat(note, p.skill); save();
+    app().querySelectorAll('[data-sp]').forEach(x => { x.classList.toggle('on', x === b); x.disabled = true; });
+    $('#why').remove();
+    $('#nxw').innerHTML = `<div class="hint">ここがポイント：${note ? fmtSafe(note) : 'この行の計算をもう一度ていねいに。'}</div><button class="big" id="nx">次へ</button>`;
+    $('#nx').onclick = next;
+  });
+}
+// 途中式の1行（'式|説明'・'|説明'・'@12:分子の式|説明'）
+function stepRow(l, i, plain) {
+  const [e, note] = [l.split('|')[0], l.split('|').slice(1).join('|')];
+  const m = e.match(/^@(\d+):(.*)$/);
+  const ex = m ? `<span class="sub">分子：</span>${fmt(m[2])}` : e ? fmt(e) : '';
+  const body = `${ex ? `<span class="ex">${ex}</span>` : ''}${note ? `<span class="nt${ex ? '' : ' only'}">${fmt(note)}</span>` : ''}`;
+  return plain ? body : `<button class="step" data-sp="${i}"><span class="no">${i + 1}</span><span class="bd">${body}</span></button>`;
 }
 function finish() {
   const first = Q.done.filter(d => !d.retry), ok = first.filter(d => d.ok).length;
@@ -395,7 +426,7 @@ function sendLog(mode) {
       const fd = new FormData();
       fd.append(f.mode, mode || (Q && Q.mode) || 'daily');
       fd.append(f.score, `${first.filter(l => l.ok).length}/${first.length}`);
-      fd.append(f.log, JSON.stringify(part.map(l => [l.at.slice(0, 16), l.card, l.ok ? 1 : 0, l.conf, l.hint ? 1 : 0, l.retry ? 1 : 0, l.err || '', l.q])));
+      fd.append(f.log, JSON.stringify(part.map(l => [l.at.slice(0, 16), l.card, l.ok ? 1 : 0, l.conf, l.hint ? 1 : 0, l.retry ? +l.retry : 0, l.err || '', l.q, l.sp == null ? '' : l.sp])));
       fetch(CFG.formPostUrl, { method: 'POST', body: fd, mode: 'no-cors', keepalive: true }).catch(() => {});
       part.forEach(l => { l.s = 1; });
     } catch (e) { /* 送れなくても端末には残っている */ }

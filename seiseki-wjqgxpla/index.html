@@ -66,10 +66,11 @@ i.v{font-family:"Times New Roman",serif;font-style:italic}
   <div class="note">
     このページは、開くたびに最新の記録を読み込みます（解いてから反映まで数分かかることがあります）。<br>
     ・<b>正答率</b>は、その問題に最初に答えたときの正解の割合です（間違えたあとの「もう一度」は数えません）。<br>
-    ・<b>得意／練習中／苦手</b>は、3問以上解いた単元を、正答率80％以上／60〜79％／60％未満で分けたものです。
+    ・<b>得意／練習中／苦手</b>は、3問以上解いた単元を、正答率80％以上／60〜79％／60％未満で分けたものです。<br>
+    ・<b>直したい問題</b>は、最初に間違えた問題です。<b>別の日に、ヒントなしで正解</b>したら「直った」に移ります（その日のうちの類題の正解では移りません）。
   </div>
 </main>
-<script src="../gen.js?v=10"></script>
+<script src="../gen.js?v=11"></script>
 <script>
 'use strict';
 const CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSRGIsZ2olhn4RHj9Mqi-01Plb1VjjaZ3N5f0rHvHEZsJpNo-32dT6b0pVfkfcBlF7vxLf25pSTAjrR/pub?gid=831540020&single=true&output=csv';
@@ -100,7 +101,7 @@ function attempts(rows) {
     for (const it of items) {
       const [at, card, ok, conf, hint, retry, err, q] = it;
       const k = `${at}|${card}|${q}`; if (seen.has(k) || EXCLUDE.has(`${at}|${card}`)) continue; seen.add(k);
-      out.push({ t: new Date(at + ':00Z'), card, sid: card.split('.')[0], ok: !!ok, conf, retry: !!retry, err, q });
+      out.push({ t: new Date(at + ':00Z'), card, sid: card.split('.')[0], ok: !!ok, conf, hint: !!hint, retry: !!retry, err, q });
     }
   }
   return out.sort((a, b) => a.t - b.t);
@@ -135,6 +136,18 @@ function bindTips(root) {
   });
 }
 
+// 間違えた問題の直り具合：最初に間違えたカード（単元×段）を「直したい」に入れ、別の日にヒントなしで正解したら「直った」へ
+const TIER = ['', '基本', 'ステップ2', '応用'];
+function fixes(all) {
+  const open = new Map(), fixed = [];
+  for (const a of all) {
+    if (a.retry) continue;
+    const day = ymd(a.t), o = open.get(a.card);
+    if (!a.ok) { if (o) { o.n++; o.wd = day; o.q = a.q; } else open.set(a.card, { card: a.card, sid: a.sid, since: a.t, wd: day, n: 1, q: a.q }); }
+    else if (o && day > o.wd && !a.hint) { open.delete(a.card); fixed.push({ ...o, at: a.t }); }
+  }
+  return { open: [...open.values()].sort((a, b) => b.since - a.since), fixed };
+}
 function render(all) {
   const first = all.filter(a => !a.retry), now = new Date(), today = ymd(now);
   const last = all.length ? all[all.length - 1].t : null;
@@ -151,6 +164,13 @@ function render(all) {
     <div class="tile"><b>${wk.length}<small>問</small></b><span>この7日で解いた問題</span></div>
     <div class="tile"><b>${wAcc == null ? '－' : wAcc}<small>${wAcc == null ? '' : '%'}</small></b><span>正答率${pAcc == null ? '' : `（前の7日 ${pAcc}%）`}</span></div>
   </div><p class="sub">これまで：${Object.keys(byDay).length}日・${first.length}問　／　連続 ${streak}日</p>`;
+
+  // 間違えた問題の直り具合
+  const fx = fixes(all), d7f = fx.fixed.filter(f => f.at >= d7).length, total = fx.open.length + fx.fixed.length;
+  h += `<h2>間違えた問題の直り具合</h2><div class="tiles" style="grid-template-columns:repeat(2,1fr);margin-top:0">
+    <div class="tile"><b>${fx.open.length}<small>問</small></b><span>直したい問題（まだ）</span></div>
+    <div class="tile"><b>${fx.fixed.length}<small>問</small></b><span>直った問題${d7f ? `（この7日で ${d7f}）` : ''}</span></div>
+  </div>${total ? `<div class="acc" style="margin-top:10px"><div class="b" style="height:10px"><i style="width:${pct(fx.fixed.length, total)}%"></i></div><span class="sub">${pct(fx.fixed.length, total)}%</span></div>` : ''}`;
 
   // カレンダー（4週間・月曜はじまり）
   const start = new Date(now); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - ((start.getDay() + 6) % 7) - 21); // 3週前の月曜から4週間
@@ -186,9 +206,10 @@ function render(all) {
   const errList = Object.entries(errs).sort((a, b) => b[1] - a[1]);
   if (errList.length) h += `<h2>本人が選んだ「つまずき」</h2><table>${errList.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}回</td></tr>`).join('')}</table>`;
 
-  // 最近まちがえた問題
-  const miss = first.filter(a => !a.ok).slice(-10).reverse();
-  if (miss.length) h += `<h2>最近まちがえた問題（新しい順・10問）</h2><div class="list">${miss.map(a => `<div>${fmtQ(a.q)}<div class="m">${md(a.t)}（${WD[a.t.getDay()]}）・${esc(NAME[a.sid] || a.sid)}${a.err ? '・' + esc(a.err) : ''}${a.conf === 'high' ? '・自信ありで×' : ''}</div></div>`).join('')}</div>`;
+  // まだ直っていない問題（一緒に見直すとき用）
+  const errOf = {}; all.forEach(a => { if (a.err && !a.ok) errOf[a.card] = a.err; });
+  if (fx.open.length) h += `<h2>まだ直っていない問題（新しい順・${Math.min(15, fx.open.length)}問）</h2><p class="sub">一緒に見直すときは、ここを紙に写して解き直すのがおすすめです（数字は毎回変わるので、同じ型の問題として使えます）。</p>
+    <div class="list">${fx.open.slice(0, 15).map(o => `<div>${fmtQ(o.q)}<div class="m">${md(o.since)}（${WD[o.since.getDay()]}）から・${esc(NAME[o.sid] || o.sid)}（${TIER[+o.card.split('.')[1]] || ''}）${o.n > 1 ? `・${o.n}回まちがえ` : ''}${errOf[o.card] ? '・' + esc(errOf[o.card]) : ''}</div></div>`).join('')}</div>`;
 
   const out = document.getElementById('out'); out.innerHTML = h; bindTips(out);
 }

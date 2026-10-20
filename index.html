@@ -101,14 +101,25 @@ label.ck input{width:20px;height:20px;accent-color:var(--accent)}
 .pick select{display:block;width:100%;margin-top:6px;font:inherit;font-size:16px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--key);color:var(--ink);-webkit-appearance:none;appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--sub) 50%),linear-gradient(135deg,var(--sub) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat}
 input[type=date]{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.sth{font-size:17px;margin:22px 0 2px}
+.steps{display:flex;flex-direction:column;gap:6px;margin:10px 0 14px}
+.step{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;width:100%}
+.step .no{flex:none;width:22px;height:22px;border-radius:50%;background:var(--key);color:var(--sub);font-size:12px;display:flex;align-items:center;justify-content:center;margin-top:4px}
+.step .bd{display:flex;flex-direction:column;gap:3px;min-width:0}
+.step .ex{font-size:20px;line-height:1.5;overflow-wrap:anywhere}
+.step .nt{font-size:13px;color:var(--sub);line-height:1.6}
+.step .nt.only{font-size:15px;color:var(--ink)}
+.step.on{border-color:var(--rv);background:var(--rv-soft)}
+.step:disabled:not(.on){opacity:.5}
+.hint .ex{display:block;font-size:20px}.hint .nt{display:block;font-size:14px}
 </style>
 </head>
 <body>
 <main id="app"></main>
 <script>window.MOVE_CONFIG = { key: 'sugaku-v2', url: 'https://hidekitamai.github.io/sugaku-trainer-rzawak20/' };</script>
-<script src="move.js?v=10"></script>
-<script src="config.js?v=10"></script>
-<script src="gen.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="move.js?v=11"></script>
+<script src="config.js?v=11"></script>
+<script src="gen.js?v=11"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
