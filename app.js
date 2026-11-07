@@ -147,9 +147,17 @@ function frontier(sid) { // 解放されている一番上の段
   while (t < s.tiers.length && (card(`${sid}.${t}`) || {}).b >= UNLOCK) t++;
   return t;
 }
+// 案A（2026-11-07）：上の段を間違えたら、その段は「保留」（hold＝1段下のカード）。下の段が別の日に正解できるまで出さず、下の段を出す
+function heldDown(id) { let k = 0; while (card(id) && card(id).hold && k++ < 5) id = card(id).hold; return id; }
+function holdBelow(id, since) {
+  const t = +id.split('.')[1]; if (t <= 1) return;
+  const low = `${id.split('.')[0]}.${t - 1}`, c = S.cards[id], lc = S.cards[low] || { b: 0, d: today(), pri: 0, ok: 0 };
+  c.hold = low; c.holdAt = since;
+  lc.pri = Math.max(lc.pri || 0, 1); if (lc.d > addDays(since, 1)) lc.d = addDays(since, 1); S.cards[low] = lc;
+}
 function dueCards() {
   const t = today(), L = new Set(S.learned);
-  return Object.entries(S.cards).filter(([id, c]) => SKILL[id.split('.')[0]] && c.d <= t && (L.has(id.split('.')[0]) || c.pri))
+  return Object.entries(S.cards).filter(([id, c]) => SKILL[id.split('.')[0]] && !c.hold && c.d <= t && (L.has(id.split('.')[0]) || c.pri))
     .sort((a, b) => (b[1].pri - a[1].pri) || a[1].d.localeCompare(b[1].d)).map(([id]) => id);
 }
 function newCards() {
@@ -171,7 +179,7 @@ function startDaily(focus) {
 const focusSkills = f => (f.startsWith('ch:') ? SKILLS.filter(s => s.ch === f.slice(3)).map(s => s.id) : SKILL[f] ? [f] : []);
 const focusLabel = f => (f.startsWith('ch:') ? `${CHAPTERS[f.slice(3)]}（全部）` : SKILL[f] ? SKILL[f].name : 'おまかせ');
 // 選んだ単元の今日の段：これまでの到達段と、今日3問連続正解で上がった段の高いほう
-const focusTier = sid => Math.min(SKILL[sid].tiers.length, Math.max(frontier(sid), Q.st[sid] || 1));
+const focusTier = sid => +heldDown(`${sid}.${Math.min(SKILL[sid].tiers.length, Math.max(frontier(sid), Q.st[sid] || 1))}`).split('.')[1];
 function startFixed(mode, title, cards) {
   Q = { mode, title, queue: cards, i: 0, done: [], retry: [], used: new Set() };
   next();
@@ -195,7 +203,7 @@ function pickDaily() {
   // 予定の問題が尽きたら、習った範囲から挑戦問題（今の段）を出し続ける
   const pool = S.learned.filter(sid => SKILL[sid] && sid !== lastSkill);
   const sid = pool[Math.floor(Math.random() * pool.length)];
-  return { id: `${sid}.${frontier(sid)}`, extra: true };
+  return { id: heldDown(`${sid}.${frontier(sid)}`), extra: true };
 }
 function next() {
   let pick;
@@ -229,6 +237,9 @@ function record(ok, conf) {
     }
   }
   S.cards[id] = c;
+  if (!retry && !ok) holdBelow(id, t); // 上の段を間違えた → 明日は1段下から
+  if (!retry && ok && !weak) // 下の段が別の日に（自信をもって）できた → 保留していた上の段を明日に戻す
+    for (const [uid, u] of Object.entries(S.cards)) if (u.hold === id && t > u.holdAt) { delete u.hold; delete u.holdAt; u.d = addDays(t, 1); }
   S.log.push({ at: new Date().toISOString(), mode: Q.mode, card: id, ok, conf, hint: Q.cur.hint, retry: retry ? (Q.cur.base ? 2 : 1) : 0, q: Q.cur.p.q });
   if (S.log.length > 3000) S.log = S.log.slice(-3000);
   save();
@@ -352,8 +363,8 @@ function result(ok, conf) {
   const { p, retry, revenge, input } = Q.cur;
   const c = record(ok, conf);
   const { base } = Q.cur, lower = !ok && retry && !base && p.tier > 1;
-  const after = ok ? (base ? '土台はできた。明日、元の問題にリベンジしよう。' : retry ? '類題でできた。明日もう一度確かめよう。' : revenge ? 'リベンジ成功！' : (conf === 'low' || Q.cur.hint) ? '正解。自信がなかったので、明日また出すね。' : `次は${INTERVALS[Math.min(c.b, INTERVALS.length) - 1]}日後に出るよ。`)
-    : (lower ? '次は、1つやさしい「土台の問題」で確かめよう。' : base ? '明日もう一度リベンジしよう。わからないところは、先生に聞いてみよう。' : retry ? '明日リベンジしよう。' : '2問あとに、数字を変えた類題が出るよ。');
+  const after = ok ? (base ? '土台はできた。明日もう一度土台を確かめてから、元の問題にリベンジしよう。' : retry ? '類題でできた。明日もう一度確かめよう。' : revenge ? 'リベンジ成功！' : (conf === 'low' || Q.cur.hint) ? '正解。自信がなかったので、明日また出すね。' : `次は${INTERVALS[Math.min(c.b, INTERVALS.length) - 1]}日後に出るよ。`)
+    : (lower ? '次は、1つやさしい「土台の問題」で確かめよう。' : base ? '明日は、この土台の問題からもう一度やろう。わからないところは、先生に聞いてみよう。' : retry ? (p.tier > 1 ? '明日は、1つやさしい問題からやり直そう。' : '明日リベンジしよう。') : '2問あとに、数字を変えた類題が出るよ。');
   const steps = p.steps || [], multi = steps.length >= 2;
   const up = Q.levelUp ? '<div class="hint center">3問連続正解！ 次はレベルを上げるよ。</div>' : ''; Q.levelUp = false;
   app().innerHTML = `
@@ -539,6 +550,12 @@ if (CFG.revengeAdd && S.revengeVer !== CFG.revengeAdd.ver) {
     c.pri = Math.max(c.pri || 0, 1); c.d = addDays(today(), Math.floor(k / 4)); S.cards[id] = c;
   });
   S.revengeVer = CFG.revengeAdd.ver;
+}
+// 案A（2026-11-07）を今あるリベンジにも1回だけ当てる：まだできていない上の段のリベンジは保留し、1段下を先に出す
+if (S.holdVer !== 1) {
+  for (const [id, c] of Object.entries(S.cards))
+    if (SKILL[id.split('.')[0]] && c.pri > 0 && c.b < UNLOCK && !c.hold && +id.split('.')[1] > 1) holdBelow(id, addDays(today(), -1));
+  S.holdVer = 1;
 }
 save(); if (!window.MOVE_IMPORTING) home();
 if (!window.MOVE_IMPORTING && S.log.some(l => !l.s)) sendLog('過去分');
