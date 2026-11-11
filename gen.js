@@ -32,6 +32,31 @@ const sgnNote = k => `まず符号を決める（負の数が${k}個 → ${k % 2
 const fxS = (n, d) => (n === 0 ? '0' : `${n < 0 ? '-' : ''}${Math.abs(n) === 1 ? '' : Math.abs(n)}x/${d}`);
 const fS = (n, d) => (n === 0 ? '0' : `${n < 0 ? '-' : ''}${Math.abs(n)}/${d}`);
 
+// ---- 図（SVG）づくりの部品。線と文字は currentColor（暗い画面でも見える）。図の中身は座標から計算して作るので、答えと必ず一致する ----
+const SV = (w, h, body) => `<svg viewBox="-22 -22 ${w + 44} ${h + 44}" width="${w + 44}" height="${h + 44}" xmlns="http://www.w3.org/2000/svg" font-family="serif" font-size="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">${body}</svg>`;
+const ln = (x1, y1, x2, y2, ex = '') => `<line x1="${+x1.toFixed(1)}" y1="${+y1.toFixed(1)}" x2="${+x2.toFixed(1)}" y2="${+y2.toFixed(1)}" ${ex}/>`;
+const tx = (x, y, t, ex = '') => `<text x="${+x.toFixed(1)}" y="${+y.toFixed(1)}" fill="currentColor" stroke="none" text-anchor="middle" dominant-baseline="middle" ${ex}>${t}</text>`;
+const dot = (x, y) => `<circle cx="${+x.toFixed(1)}" cy="${+y.toFixed(1)}" r="3.2" fill="currentColor" stroke="none"/>`;
+const thin = 'stroke-width="0.7" opacity="0.35"';
+const gridSV = (n, u, body) => { let g = ''; for (let i = 0; i <= n; i++) g += ln(i * u, 0, i * u, n * u, thin) + ln(0, i * u, n * u, i * u, thin); return SV(n * u, n * u, g + body); };
+// 座標平面（-L〜L）。X,Y で数学の座標→画面の位置
+const plane = (L, u, body) => { const X = x => (x + L) * u, Y = y => (L - y) * u; let g = '';
+  for (let i = -L; i <= L; i++) g += ln(X(i), 0, X(i), 2 * L * u, thin) + ln(0, Y(i), 2 * L * u, Y(i), thin);
+  g += ln(0, Y(0), 2 * L * u, Y(0)) + ln(X(0), 0, X(0), 2 * L * u) + tx(2 * L * u + 8, Y(0), 'x', 'font-style="italic"') + tx(X(0), -8, 'y', 'font-style="italic"') + tx(X(0) - 9, Y(0) + 10, 'O', 'font-size="12"');
+  for (const i of [-L + 1, 1, L - 1]) g += tx(X(i), Y(0) + 11, `${i}`.replace('-', '−'), 'font-size="11"') + tx(X(0) - 11, Y(i), `${i}`.replace('-', '−'), 'font-size="11"');
+  return SV(2 * L * u, 2 * L * u, g + body(X, Y)); };
+const pick4 = (trues, falses, minT = 1) => { // 正しい文・まちがいの文から4つ（正しいものを1つ以上ふくむ）
+  let t; do t = R(minT, Math.min(3, trues.length)); while (4 - t > falses.length);
+  const sh = a => a.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(v => v[1]);
+  return sh([...sh(trues).slice(0, t).map(s => [s, true]), ...sh(falses).slice(0, 4 - t).map(s => [s, false])]); };
+const KANA = ['ア', 'イ', 'ウ', 'エ'];
+const choiceOf = (items, instr, extra = {}) => ({ instr, q: items.map((it, i) => `${KANA[i]}　${it[0]}`).join('\n'), kind: 'choice', opts: KANA.slice(0, items.length), ans: items.map((it, i) => (it[1] ? KANA[i] : null)).filter(Boolean),
+  steps: items.map((it, i) => `|${KANA[i]}　${it[0]} → ${it[1] ? '正しい' : 'まちがい'}${it[2] ? `（${it[2]}）` : ''}`), ...extra });
+// 2本の線分（点の組）が垂直か・平行か（座標で判定）
+const vec = (P, Q) => [Q[0] - P[0], Q[1] - P[1]];
+const isPerp = (a, b) => Math.abs(a[0] * b[0] + a[1] * b[1]) < 1e-9;
+const isPara = (a, b) => Math.abs(a[0] * b[1] - a[1] * b[0]) < 1e-9;
+
 // kind: solve（x=数）/ num（数）/ expr（文字式）/ func（y=式）/ choice（記号）/ rel（等式・不等式）
 const SKILLS = [
   // ---------------- 1章 正の数・負の数 ----------------
@@ -320,6 +345,81 @@ const SKILLS = [
       return { instr: '次の表は、yがxに比例または反比例する関係を表しています。yをxの式で表しなさい。', q: `x : 1, 2, 3, 4\ny : ${ys.join(', ')}`, py: `${a}*x`, kind: 'func', ans: `y=${term(a, 'x')}`, hint: 'xyが一定なら反比例、y/xが一定なら比例。',
         steps: [`|y÷x を調べると、どれも ${a} で一定 → 比例（y＝ax）`, `|a＝${a}`] }; },
   ]},
+  { id: 'c4-zahyou', ch: '4', name: '座標と比例・反比例のグラフ', tiers: [
+    () => { let a, b; do { a = NZ(-4, 4); b = NZ(-4, 4); } while (Math.abs(a) === Math.abs(b));
+      const fig = plane(5, 20, (X, Y) => dot(X(a), Y(b)) + tx(X(a) + 10, Y(b) - 11, 'P', 'font-style="italic"'));
+      const items = [[a, b], [b, a], [-a, b], [a, -b]].map((s, i) => [`(${s[0]}, ${s[1]})`, i === 0]).map(v => [Math.random(), v]).sort((p, q) => p[0] - q[0]).map(v => v[1]);
+      return { ...choiceOf(items, '図の点Pの座標を選びなさい。'), fig, hint: '座標は（x座標, y座標）の順。x座標は左右、y座標は上下の位置。',
+        steps: [`|点Pから x軸へ垂直に下ろすと ${a}、y軸へ垂直に下ろすと ${b}`, `|座標は（x座標, y座標）の順に書く → (${a}, ${b})`] }; },
+    () => { const p = R(1, 4), q = NZ(-5, 5), m = q / p, xe = Math.min(5, 5 / Math.abs(m)), g = gcd(p, q);
+      const fig = plane(5, 20, (X, Y) => ln(X(-xe), Y(-m * xe), X(xe), Y(m * xe), 'stroke-width="2.2"') + dot(X(p), Y(q)));
+      return { instr: '図の直線は、比例のグラフです。yをxの式で表しなさい。', q: '（目盛りがちょうど交わる点・で示した点を読もう）', fig, py: `${q}/${p}*x`, kind: 'func',
+        ans: q % p === 0 ? `y=${term(q / p, 'x')}` : `y=${q < 0 ? '-' : ''}${Math.abs(q) / g}/${p / g}x`, hint: '比例のグラフは原点を通る直線。通る点を1つ読んで、y＝axに代入する。',
+        steps: [`|グラフは原点と点（${p}, ${q}）を通る`, `|y＝axに x＝${p}、y＝${q} を代入する：${q}＝a×${p}`, `|a＝${q}÷${p}＝${frac(q, p)}`] }; },
+    () => { const a = P([4, 6, 8, -4, -6, -8]), xs = [1, 2, 3, 4, 5].filter(x => a % x === 0 && Math.abs(a / x) <= 5), p = P(xs), q = a / p;
+      const fig = plane(5, 20, (X, Y) => { let s = ''; for (const sg of [1, -1]) { const pts = []; for (let x = 0.5; x <= 5.4; x += 0.05) { const y = a / (sg * x); if (Math.abs(y) <= 5.4) pts.push(`${+X(sg * x).toFixed(1)},${+Y(y).toFixed(1)}`); }
+        s += `<polyline points="${pts.join(' ')}" stroke-width="2.2"/>`; } return s + dot(X(p), Y(q)); });
+      return { instr: '図の曲線は、反比例のグラフです。yをxの式で表しなさい。', q: '（目盛りがちょうど交わる点・で示した点を読もう）', fig, py: `${a}/x`, kind: 'func', ans: `y=${a}/x`, hint: '反比例は y＝a/x。通る点を1つ読んで、a＝x×y を求める。',
+        steps: [`|グラフ上の点（${p}, ${q}）を読む`, `|反比例は y＝a/x なので、a＝x×y＝${p}×${par(q)}＝${a}`] }; },
+  ]},
+  // ---------------- 5章 平面図形 ----------------
+  { id: 'c5-chokusen', ch: '5', name: '直線と図形（記号・距離）', tiers: [
+    () => { if (Math.random() < 0.5) {
+        const DEF = [['両方向に、まっすぐ限りなくのびている線', '直線'], ['直線の一部で、両端のあるもの', '線分'], ['直線の一部で、1点を端として一方だけに限りなくのびたもの', '半直線'], ['2点を結ぶ線のうちで、もっとも短いもの', '線分'], ['2つの直線が交わる点', '交点']];
+        const [d, t] = P(DEF), items = ['直線', '線分', '半直線', '交点'].map(w => [w, w === t]).map(v => [Math.random(), v]).sort((p, q) => p[0] - q[0]).map(v => v[1]);
+        return { ...choiceOf(items, `次の説明にあてはまることばを選びなさい。\n「${d}」`), hint: '直線・線分・半直線は、端があるかどうかで区別する。',
+          steps: [`|${t}：${d}`, '|直線＝両方向に限りなくのびる／線分＝両端がある／半直線＝一方の端だけがある'] }; }
+      const T = [['1点を通る直線は、何本もある'], ['2点を通る直線は、1本しかない'], ['線分ABは、2点A、Bを結ぶ線のうちで、もっとも短いもの'], ['直線ABと直線BAは、同じ直線を表す'], ['半直線ABは、点Aを端として、点Bの方向にのびたもの']];
+      const F = [['1点を通る直線は、1本しかない', '1点を通る直線は何本もある'], ['2点を通る直線は、何本もある', '2点を通る直線は1本しかない'], ['線分は、両方向に限りなくのびている', 'それは直線。線分には両端がある'], ['半直線ABと半直線BAは、同じものを表す', '端になる点がちがうので、別のもの'], ['直線ABの長さは、ものさしではかれる', '直線は限りなくのびるので、長さははかれない']];
+      return { ...choiceOf(pick4(T, F).map(([e, ok]) => [e[0], ok, e[1]]), '次のア〜エのうち、正しいものをすべて選びなさい。'), hint: '直線・線分・半直線のちがいを思い出そう。' }; },
+    () => { const f = R(0, 2), U = 36, sc = pts => pts.map(([x, y]) => [x * U, (4 - y) * U]);
+      const label = (pts, names) => { const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+        return pts.map((p, i) => { const dx = p[0] - cx, dy = p[1] - cy, r = Math.hypot(dx, dy) || 1; return tx(p[0] + dx / r * 13, p[1] + dy / r * 13, names[i]); }).join(''); };
+      if (f === 0) { // 四角形の辺の垂直・平行
+        const SH = [{ n: '長方形', p: [[0, 3], [0, 0], [5, 0], [5, 3]], note: '長方形は、となり合う辺が垂直、向かい合う辺が平行' },
+          { n: 'ひし形', p: [[3, 4], [0, 2], [3, 0], [6, 2]], diag: true, note: 'ひし形は、向かい合う辺が平行で、2本の対角線が垂直に交わる' },
+          { n: '台形', p: [[1, 3], [0, 0], [6, 0], [4, 3]], arrow: true, note: '台形は、1組の向かい合う辺（印のついた辺）が平行' }][R(0, 2)];
+        const V = { A: SH.p[0], B: SH.p[1], C: SH.p[2], D: SH.p[3] }, segs = ['AB', 'BC', 'DC', 'AD'].concat(SH.diag ? ['AC', 'BD'] : []);
+        const T = [], F = [];
+        for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+          const a = vec(V[segs[i][0]], V[segs[i][1]]), b = vec(V[segs[j][0]], V[segs[j][1]]);
+          (isPerp(a, b) ? T : F).push([`${segs[i]}⊥${segs[j]}`]); (isPara(a, b) ? T : F).push([`${segs[i]}∥${segs[j]}`]); }
+        const S = sc(SH.p); let body = `<polygon points="${S.map(p => p.join(',')).join(' ')}"/>` + label(S, ['A', 'B', 'C', 'D']);
+        if (SH.diag) { body += ln(S[0][0], S[0][1], S[2][0], S[2][1]) + ln(S[1][0], S[1][1], S[3][0], S[3][1]); const c = [3 * U, 2 * U]; body += `<polyline points="${c[0] + 8},${c[1]} ${c[0] + 8},${c[1] - 8} ${c[0]},${c[1] - 8}" stroke-width="1.2"/>`; }
+        if (SH.arrow) for (const [P1, P2] of [[S[0], S[3]], [S[1], S[2]]]) { const mx = (P1[0] + P2[0]) / 2, my = P1[1]; body += `<polyline points="${mx - 5},${my - 5} ${mx + 2},${my} ${mx - 5},${my + 5}" stroke-width="1.4"/>`; }
+        const items = pick4(T, F);
+        return { ...choiceOf(items, `図の${SH.n}ABCDについて、正しいものをすべて選びなさい。${SH.diag ? '（対角線AC、BDもひいてある）' : ''}`), fig: SV(6 * U, 4 * U, body), hint: '⊥は「垂直」、∥は「平行」を表す記号。',
+          steps: [`|${SH.note}`, ...choiceOf(items, '').steps] }; }
+      const S = sc([[2, 4], [0, 0], [6, 0]]), N = ['A', 'B', 'C'];
+      if (f === 1) { // 角の表し方
+        const v = R(0, 2), x = (v + 1) % 3, y = (v + 2) % 3, [V, X, Y] = [N[v], N[x], N[y]];
+        const a1 = Math.atan2(S[x][1] - S[v][1], S[x][0] - S[v][0]); let a2 = Math.atan2(S[y][1] - S[v][1], S[y][0] - S[v][0]);
+        if (a2 - a1 > Math.PI) a2 -= 2 * Math.PI; if (a1 - a2 > Math.PI) a2 += 2 * Math.PI;
+        const arc = []; for (let k = 0; k <= 12; k++) { const t = a1 + (a2 - a1) * k / 12; arc.push(`${+(S[v][0] + 20 * Math.cos(t)).toFixed(1)},${+(S[v][1] + 20 * Math.sin(t)).toFixed(1)}`); }
+        const body = `<polygon points="${S.map(p => p.join(',')).join(' ')}"/>` + label(S, N) + `<polyline points="${arc.join(' ')}" stroke-width="1.4"/>`;
+        const items = [[`∠${X}${V}${Y}`, true], [`∠${V}${X}${Y}`, false], [`∠${X}${Y}${V}`, false], [`∠${V}${Y}${X}`, false]].map(r => [Math.random(), r]).sort((p, q) => p[0] - q[0]).map(r => r[1]);
+        return { ...choiceOf(items, '図の三角形で、印（弧）をつけた角を、記号∠を使って表したものを選びなさい。'), fig: SV(6 * U, 4 * U, body), hint: '角の頂点を、まん中に書く。',
+          steps: [`|角は「辺の上の点・頂点・辺の上の点」の順に書き、頂点${V}をまん中に書く`, `|∠${X}${V}${Y}（∠${Y}${V}${X}、∠${V} と書いてもよい）`] }; }
+      // 三角形の表し方（図の中の三角形をすべて）
+      const onBC = Math.random() < 0.5, D = onBC ? [R(2, 4), 0] : [1, 2], Ds = sc([D])[0];
+      const body = `<polygon points="${S.map(p => p.join(',')).join(' ')}"/>` + label(S, N) + (onBC ? ln(S[0][0], S[0][1], Ds[0], Ds[1]) + tx(Ds[0], Ds[1] + 13, 'D') : ln(S[2][0], S[2][1], Ds[0], Ds[1]) + tx(Ds[0] - 13, Ds[1], 'D'));
+      const raw = onBC ? [['△ABC', true], ['△ABD', true], ['△ADC', true], ['△BDC', false, '点B、D、Cは一直線上にあるので三角形にならない']]
+        : [['△ABC', true], ['△ADC', true], ['△DBC', true], ['△ADB', false, '点A、D、Bは一直線上にあるので三角形にならない']];
+      const items = raw.map(r => [Math.random(), r]).sort((p, q) => p[0] - q[0]).map(r => r[1]);
+      return { ...choiceOf(items, '図の中にある三角形を、すべて選びなさい。'), fig: SV(6 * U, 4 * U, body), hint: '3つの頂点を、△の後ろに書いて表す。一直線上の3点は三角形にならない。' }; },
+    () => { const f = R(0, 2), U = 24, n = 8;
+      if (f === 2) { const d = R(2, 4);
+        return { instr: '次の問いに答えなさい。', q: `ノートに直線ABをかき、直線ABとの距離が${d}cmになる、直線ABと平行な直線をひきます。このような直線は何本ひけますか。`, py: '2', kind: 'num', ans: '2', unit: '本', hint: '直線ABの上側と下側を考えよう。',
+          steps: [`|直線ABの上側に${d}cm離れた平行な直線が1本、下側にも1本ひける`, '2'] }; }
+      const hor = Math.random() < 0.5, r = R(1, 3), d = R(2, 5), c = R(1, 6), XY = (a, b) => (hor ? [a * U, b * U] : [b * U, a * U]);
+      let body = ln(...XY(0, r), ...XY(n, r), 'stroke-width="2.2"') + tx(...XY(n - 0.4, r - 0.45), 'ℓ', 'font-style="italic"');
+      if (f === 0) { const [px, py] = XY(c, r + d); body += dot(px, py) + tx(px + 11, py - 11, 'A');
+        return { instr: '方眼の1目盛りを1cmとします。', q: '点Aと直線ℓとの距離は何cmですか。', fig: gridSV(n, U, body), py: `${d}`, kind: 'num', ans: `${d}`, unit: 'cm', hint: '点から直線に垂線をひき、その長さをはかる。',
+          steps: [`|点Aから直線ℓに垂線（ℓと垂直に交わる線）をひく`, `|垂線の長さを目盛りで数えると、${d}目盛り`, `${d}`] }; }
+      body += ln(...XY(0, r + d), ...XY(n, r + d), 'stroke-width="2.2"') + tx(...XY(n - 0.4, r + d - 0.45), 'm', 'font-style="italic"');
+      return { instr: '方眼の1目盛りを1cmとします。', q: '平行な2直線ℓ、m間の距離は何cmですか。', fig: gridSV(n, U, body), py: `${d}`, kind: 'num', ans: `${d}`, unit: 'cm', hint: 'ℓ上のどこからmに垂線をひいても、長さは同じ。',
+        steps: ['|ℓ上の点からmに垂線をひく（どこからひいても長さは同じ）', `|垂線の長さを目盛りで数えると、${d}目盛り`, `${d}`] }; },
+  ]},
 ];
 
 // 教科書・ワークの該当ページ（ワークの「教科書 p.○」表示と目次から。1章は教科書ページ未確認）
@@ -332,13 +432,14 @@ const PAGES = {
   'c3-kakko': { kyo: '96〜97', work: '62〜63' }, 'c3-frac': { kyo: '96〜97', work: '62〜64' }, 'c3-hirei': { kyo: '99〜100', work: '65' },
   'c3-riyou': { kyo: '102〜109', work: '68〜71' },
   'c4-hirei': { kyo: '120〜123', work: '80〜81' }, 'c4-hanpi': { kyo: '131〜133', work: '86〜87' },
+  'c5-chokusen': { kyo: '148〜154', work: '100〜101' }, // c4-zahyou のページは未確認
 };
 for (const s of SKILLS) s.pages = PAGES[s.id] || {};
 const pageText = (sid, short) => { const g = (SKILLS.find(s => s.id === sid) || {}).pages || {};
   return short ? (g.kyo ? `教p.${g.kyo}` : g.work ? `ワークp.${g.work}` : '')
     : [g.kyo && `教科書 p.${g.kyo}`, g.work && `ワーク p.${g.work}`].filter(Boolean).join('　'); };
 const SKILL = Object.fromEntries(SKILLS.map(s => [s.id, s]));
-const CHAPTERS = { '1': '1章 正の数・負の数', '2': '2章 文字の式', '3': '3章 方程式', '4': '4章 変化と対応' };
+const CHAPTERS = { '1': '1章 正の数・負の数', '2': '2章 文字の式', '3': '3章 方程式', '4': '4章 変化と対応', '5': '5章 平面図形' };
 
 function makeProblem(cardId) {
   const [sid, t] = cardId.split('.');

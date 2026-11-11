@@ -280,7 +280,7 @@ function ask() {
     ${topBar()}
     <div class="top">${tag()}<span class="sub">${esc(p.sname)}</span></div>
     <div class="instr">${fmtSafe(p.instr)}</div>
-    <div class="q">${fmtSafe(p.q)}</div>
+    <div class="q">${fmtSafe(p.q)}</div>${p.fig ? `<div class="fig">${p.fig}</div>` : ''}
     <div id="hintbox"></div>
     ${p.unit ? `<div class="sub">単位（${esc(p.unit)}）は入れなくてよい</div>` : ''}
     ${body}
@@ -372,7 +372,7 @@ function result(ok, conf) {
     <div class="mark ${ok ? 'ok' : 'ng'}">${ok ? '○' : '×'}</div>
     <p class="center sub">${after}</p>${up}
     ${!ok && conf === 'high' ? '<div class="msg">自信があったのに違った問題は、思いこみがかくれているかも。</div>' : ''}
-    <div class="q small">${fmtSafe(p.q)}</div>
+    <div class="q small">${fmtSafe(p.q)}</div>${p.fig ? `<div class="fig">${p.fig}</div>` : ''}
     <div class="ansrow"><span class="sub">正しい答え</span><span class="ans">${fmtSafe(p.ans instanceof Array ? p.ans.join('、') : p.ans)}</span></div>
     ${!ok && input ? `<div class="ansrow"><span class="sub">あなたの答え</span><span>${fmtSafe(input)}</span></div>` : ''}
     ${ok ? '<button class="big" id="nx">次へ</button>'
@@ -556,6 +556,12 @@ if (S.holdVer !== 1) {
   for (const [id, c] of Object.entries(S.cards))
     if (SKILL[id.split('.')[0]] && c.pri > 0 && c.b < UNLOCK && !c.hold && +id.split('.')[1] > 1) holdBelow(id, addDays(today(), -1));
   S.holdVer = 1;
+}
+// 学校で習った単元を足す・テスト範囲をそろえる（config の learnAdd の ver を上げると次回起動時に1回だけ）
+if (CFG.learnAdd && S.learnVer !== CFG.learnAdd.ver) {
+  for (const sid of CFG.learnAdd.skills) if (SKILL[sid] && !S.learned.includes(sid)) S.learned.push(sid);
+  if (CFG.learnAdd.range) S.settings.range = CFG.learnAdd.range.slice();
+  S.learnVer = CFG.learnAdd.ver;
 }
 save(); if (!window.MOVE_IMPORTING) home();
 if (!window.MOVE_IMPORTING && S.log.some(l => !l.s)) sendLog('過去分');

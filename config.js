@@ -20,5 +20,27 @@ window.SUGAKU_CONFIG = {
     'c3-basic.1', 'c3-basic.3', 'c3-both.1', 'c3-both.2', 'c3-kakko.1', 'c3-frac.3',
   ],
 };
-// 予想テスト（過去のテストをもとに作成したら、ここに追加する）
-window.YOSOU = [];
+// 2026-11-11 期末テストの範囲（2章 式の値〜／3章／4章 反比例まで／5章 1節 直線と図形）。新しい単元を「習った」に足し、範囲をそろえる
+window.SUGAKU_CONFIG.learnAdd = { ver: 1, skills: ['c4-hirei', 'c4-hanpi', 'c4-zahyou', 'c5-chokusen'], range: ['2', '3', '4', '5'] };
+// 予想テスト（過去のテストの型＝前半に計算の小問、後半に文章題・関数・図形。弱点の符号・かっこ・分数・−x² を多めに）
+// 1問ごとに数字が変わる類題なので、同じ回を何度解いてもよい。
+window.YOSOU = [
+  { title: '期末 予想テスト 第1回', cards: [
+    'c2-atai.2', 'c2-atai.3', 'c2-kagen.2', 'c2-jouj.1', 'c2-jouj.2', 'c2-mix.2', 'c2-mix.3',       // 文字の式
+    'c3-basic.2', 'c3-both.2', 'c3-kakko.2', 'c3-frac.1', 'c3-frac.3', 'c3-hirei.2',                 // 方程式
+    'c2-kankei.1', 'c3-riyou.1',                                                                    // 立式
+    'c4-hirei.1', 'c4-hanpi.2', 'c4-zahyou.1', 'c4-zahyou.2',                                         // 比例・反比例
+    'c5-chokusen.1', 'c5-chokusen.2', 'c5-chokusen.3'] },                                            // 平面図形
+  { title: '期末 予想テスト 第2回', cards: [
+    'c2-atai.1', 'c2-atai.2', 'c2-kagen.3', 'c2-jouj.3', 'c2-mix.1', 'c2-mix.2', 'c2-mix.3',
+    'c3-basic.3', 'c3-both.3', 'c3-kakko.3', 'c3-frac.2', 'c3-hirei.1', 'c3-hirei.3',
+    'c2-kankei.2', 'c3-riyou.2',
+    'c4-hirei.2', 'c4-hanpi.1', 'c4-hanpi.3', 'c4-zahyou.3',
+    'c5-chokusen.1', 'c5-chokusen.2', 'c5-chokusen.3'] },
+  { title: '期末 予想テスト 第3回（仕上げ）', cards: [
+    'c2-atai.2', 'c2-kagen.2', 'c2-jouj.2', 'c2-jouj.3', 'c2-mix.2', 'c2-mix.3', 'c2-kankei.3',
+    'c3-both.1', 'c3-kakko.2', 'c3-kakko.3', 'c3-frac.1', 'c3-frac.3', 'c3-hirei.2',
+    'c3-riyou.3', 'c3-riyou.1',
+    'c4-hirei.3', 'c4-hanpi.2', 'c4-zahyou.2', 'c4-zahyou.3',
+    'c5-chokusen.1', 'c5-chokusen.2', 'c5-chokusen.3'] },
+];
