@@ -293,7 +293,7 @@ const SKILLS = [
       // (x+a)/p=(x+c)/q → q(x+a)=p(x+c) → x=(pc-qa)/(q-p)
       const num = p * c - q2 * a, den = q2 - p, L = p * q2 / gcd(p, q2), P1 = L / p, Q1 = L / q2;
       return { instr: '次の方程式を解きなさい。', q: `(x${plusNum(a)})/${p}=(x${plusNum(c)})/${q2}`, py: `Eq((x+(${a}))/${p},(x+(${c}))/${q2})`, kind: 'solve', var: 'x', ans: `x=${frac(num, den)}`, hint: '両辺に分母の最小公倍数をかける。分子にはかっこを。', _x: x,
-        steps: ST(`${P1 === 1 ? '' : P1}(x${plusNum(a)})=${Q1 === 1 ? '' : Q1}(x${plusNum(c)})|両辺に${L}をかけて、分母をはらう（分子にはかっこをつける）`, `${lin(P1, P1 * a)}=${lin(Q1, Q1 * c)}|分配法則でかっこをはずす`,
+        steps: ST(`${P1 === 1 ? `x${plusNum(a)}` : `${P1}(x${plusNum(a)})`}=${Q1 === 1 ? `x${plusNum(c)}` : `${Q1}(x${plusNum(c)})`}|両辺に${L}をかけて、分母をはらう（分子にはかっこをつける）`, `${lin(P1, P1 * a)}=${lin(Q1, Q1 * c)}|分配法則でかっこをはずす`,
           `${term(P1, 'x')}${plusTerm(-Q1, 'x')}=${Q1 * c}${plusNum(-P1 * a)}|移項する：xの項は左辺へ、数の項は右辺へ（符号が変わる）`, `${term(P1 - Q1, 'x')}=${Q1 * c - P1 * a}|同類項をまとめる`, divLine(P1 - Q1, Q1 * c - P1 * a), `x=${frac(num, den)}|答えは約分する`) }; },
   ]},
   { id: 'c3-hirei', ch: '3', name: '比例式', tiers: [
@@ -324,7 +324,7 @@ const SKILLS = [
     () => { const a = NZ(-6, 6), x = NZ(-5, 5);
       return { instr: 'yはxに比例し、次の条件を満たします。yをxの式で表しなさい。', q: `x=${x}のとき y=${a * x}`, py: `${a * x}/(${x})*x`, kind: 'func', ans: `y=${term(a, 'x')}`, hint: 'y=axに代入して、aを求める。',
         steps: [`|y＝axに、x＝${x}、y＝${a * x} を代入する：${a * x}＝a×${par(x)}`, `|a＝${a * x}÷${par(x)}＝${a}`] }; },
-    () => { const a = NZ(-6, 6), x = NZ(-5, 5), x2 = NZ(-6, 6);
+    () => { const a = NZ(-6, 6), x = NZ(-5, 5); let x2; do x2 = NZ(-6, 6); while (x2 === x); // 条件と同じxは聞かない
       return { instr: `yはxに比例し、x=${x}のとき y=${a * x} です。`, q: `x=${x2}のときのyの値を求めなさい。`, py: `${a * x}/(${x})*(${x2})`, kind: 'num', ans: `${a * x2}`, hint: 'まず式を求めてから、xを代入する。',
         steps: [`|y＝axに代入する：${a * x}＝a×${par(x)} より、a＝${a}`, `|式は y＝${term(a, 'x')}`, `${a}×${par(x2)}|x＝${x2}を、かっこをつけて代入する`] }; },
     () => { let n, d; do { n = NZ(-5, 5); d = R(2, 4); } while (gcd(n, d) !== 1); const k = NZ(-2, 2), x = d * k;
@@ -335,7 +335,7 @@ const SKILLS = [
     () => { const a = NZ(-24, 24), xs = [1, 2, 3, 4, 6].filter(v => a % v === 0), x = P(xs) * P([1, -1]);
       return { instr: 'yはxに反比例し、次の条件を満たします。yをxの式で表しなさい。', q: `x=${x}のとき y=${a / x}`, py: `(${x})*(${a / x})/x`, kind: 'func', ans: `y=${a}/x`, hint: 'y=a/xなので、a=xy。',
         steps: ['|y＝a/x の形なので、a＝x×y', `|a＝${par(x)}×${par(a / x)}＝${a}（かっこをつけて代入する）`] }; },
-    () => { const a = P([12, 18, 24, 36, -12, -18, -24, -36]), d = [1, 2, 3, 4, 6, 9, 12].filter(v => a % v === 0), x = P(d), x2 = P(d) * P([1, -1]);
+    () => { const a = P([12, 18, 24, 36, -12, -18, -24, -36]), d = [1, 2, 3, 4, 6, 9, 12].filter(v => a % v === 0), x = P(d); let x2; do x2 = P(d) * P([1, -1]); while (x2 === x); // 条件と同じxは聞かない
       return { instr: `yはxに反比例し、x=${x}のとき y=${a / x} です。`, q: `x=${x2}のときのyの値を求めなさい。`, py: `(${x})*(${a / x})/(${x2})`, kind: 'num', ans: `${a / x2}`, hint: 'まずa=xyを求めて、y=a/xにxを代入。',
         steps: [`|a＝x×y＝${x}×${par(a / x)}＝${a}`, `|式は y＝${a}/x`, `${a}÷${par(x2)}|x＝${x2}を、かっこをつけて代入する（分数はわり算）`] }; },
     () => { const a = NZ(-5, 5) * P([1, 2, 3]), f = P(['hirei', 'hanpi']);
@@ -397,9 +397,9 @@ const SKILLS = [
         if (a2 - a1 > Math.PI) a2 -= 2 * Math.PI; if (a1 - a2 > Math.PI) a2 += 2 * Math.PI;
         const arc = []; for (let k = 0; k <= 12; k++) { const t = a1 + (a2 - a1) * k / 12; arc.push(`${+(S[v][0] + 20 * Math.cos(t)).toFixed(1)},${+(S[v][1] + 20 * Math.sin(t)).toFixed(1)}`); }
         const body = `<polygon points="${S.map(p => p.join(',')).join(' ')}"/>` + label(S, N) + `<polyline points="${arc.join(' ')}" stroke-width="1.4"/>`;
-        const items = [[`∠${X}${V}${Y}`, true], [`∠${V}${X}${Y}`, false], [`∠${X}${Y}${V}`, false], [`∠${V}${Y}${X}`, false]].map(r => [Math.random(), r]).sort((p, q) => p[0] - q[0]).map(r => r[1]);
-        return { ...choiceOf(items, '図の三角形で、印（弧）をつけた角を、記号∠を使って表したものを選びなさい。'), fig: SV(6 * U, 4 * U, body), hint: '角の頂点を、まん中に書く。',
-          steps: [`|角は「辺の上の点・頂点・辺の上の点」の順に書き、頂点${V}をまん中に書く`, `|∠${X}${V}${Y}（∠${Y}${V}${X}、∠${V} と書いてもよい）`] }; }
+        const items = [[`∠${X}${V}${Y}`, true], [`∠${Y}${V}${X}`, true], [`∠${V}${X}${Y}`, false], [`∠${X}${Y}${V}`, false]].map(r => [Math.random(), r]).sort((p, q) => p[0] - q[0]).map(r => r[1]);
+        return { ...choiceOf(items, '図の三角形で、印（弧）をつけた角を、記号∠を使って表したものを、すべて選びなさい。'), fig: SV(6 * U, 4 * U, body), hint: '角の頂点を、まん中に書く。',
+          steps: [`|角は「辺の上の点・頂点・辺の上の点」の順に書き、頂点${V}をまん中に書く`, `|∠${X}${V}${Y} と ∠${Y}${V}${X} は同じ角（∠${V} と書いてもよい）。頂点がまん中にないものはちがう角`] }; }
       // 三角形の表し方（図の中の三角形をすべて）
       const onBC = Math.random() < 0.5, D = onBC ? [R(2, 4), 0] : [1, 2], Ds = sc([D])[0];
       const body = `<polygon points="${S.map(p => p.join(',')).join(' ')}"/>` + label(S, N) + (onBC ? ln(S[0][0], S[0][1], Ds[0], Ds[1]) + tx(Ds[0], Ds[1] + 13, 'D') : ln(S[2][0], S[2][1], Ds[0], Ds[1]) + tx(Ds[0] - 13, Ds[1], 'D'));
